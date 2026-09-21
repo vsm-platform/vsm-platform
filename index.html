@@ -556,6 +556,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       <button class="tab2-btn" data-t2="employees" onclick="switchAdminTab('employees')">👷 الموظفون</button>
       <button class="tab2-btn" data-t2="vsms" onclick="switchAdminTab('vsms')">🗂 خرائط VSM</button>
       <button class="tab2-btn" data-t2="domains" onclick="switchAdminTab('domains')">🏷 المجالات</button>
+      <button class="tab2-btn" data-t2="stats" onclick="switchAdminTab('stats')">📊 الإحصائيات</button>
     </div>
 
     <div id="admin-institutions" class="tab2-panel active">
@@ -635,6 +636,25 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
           </table>
         </div>
         <div class="empty-msg" style="text-align:right; padding:12px 4px 0;">ملاحظة: خيار "أخرى" متاح دائماً تلقائياً عند إنشاء خريطة جديدة، ويتيح للموظف كتابة مجال مخصص بنفسه.</div>
+      </div>
+    </div>
+
+    <div id="admin-stats" class="tab2-panel">
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat"><div class="label">إجمالي الخرائط</div><div class="value" id="infoTotalRecords">0</div></div>
+          <div class="stat good"><div class="label">عدد التحسينات المكتملة</div><div class="value" id="infoTotalImprovements">0</div></div>
+          <div class="stat"><div class="label">متوسط تحسّن الكفاءة</div><div class="value" id="infoAvgImprovement">—</div></div>
+          <div class="stat"><div class="label">المؤسسة الأكثر نشاطًا</div><div class="value" id="infoTopInstitution" style="font-size:15px;">—</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2><span class="t">📊 عدد التحسينات المكتملة حسب المؤسسة الصحية</span></h2>
+        <div id="instImprovementChart"></div>
+      </div>
+      <div class="card">
+        <h2><span class="t">🏷 توزيع خرائط VSM حسب المجال</span></h2>
+        <div id="domainCountChart"></div>
       </div>
     </div>
 
@@ -809,9 +829,12 @@ function addEmployee(data){
 }
 function deleteEmployee(id){
   if(!firebaseReady) return;
-  const hasRecords = ALL_RECORDS.some(r => r.employeeId === id);
-  if(hasRecords){ if(!confirm("لهذا الموظف خرائط VSM محفوظة. حذف الحساب لن يحذف الخرائط لكنه سيمنع الوصول لها. هل تريد الاستمرار؟")) return; }
-  else if(!confirm("هل تريد حذف هذا الموظف؟")) return;
+  const hasRecords = ALL_RECORDS.some(r => r.employeeDocId === id);
+  if(hasRecords){
+    alert("لا يمكن حذف هذا الموظف لأن لديه خرائط VSM محفوظة. يجب حذف خرائطه أولاً (من لوحة الأدمن) قبل حذف حسابه.");
+    return;
+  }
+  if(!confirm("هل تريد حذف هذا الموظف؟")) return;
   db.collection(EMPLOYEES_COLLECTION).doc(id).delete();
 }
 
@@ -907,6 +930,74 @@ function renderInstitutionEmployees(){
    ============================================================ */
 function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function computeImprovementCountsByInstitution(){
+  const byInst = {};
+  ALL_RECORDS.forEach(r=>{
+    const fut = r.appState && r.appState.future;
+    const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+    if(!futValid) return;
+    const inst = ALL_INSTITUTIONS.find(i=>i.id===r.institutionId);
+    const label = inst ? inst.name : 'غير محدد';
+    byInst[label] = (byInst[label]||0)+1;
+  });
+  return byInst;
+}
+
+function computeDomainCounts(){
+  const byDomain = {};
+  ALL_RECORDS.forEach(r=>{
+    const label = r.domain || 'غير محدد';
+    byDomain[label] = (byDomain[label]||0)+1;
+  });
+  return byDomain;
+}
+
+function renderBarList(containerId, dataObj, barColor){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const entries = Object.entries(dataObj).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){ el.innerHTML = '<div class="empty-msg">لا توجد بيانات كافية بعد.</div>'; return; }
+  const max = Math.max.apply(null, entries.map(e=>e[1]));
+  el.innerHTML = entries.map(([label,count])=>{
+    const pct = max>0 ? (count/max*100) : 0;
+    return `<div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+        <span>${escHtml(label)}</span><span style="font-weight:700;color:var(--navy);">${count}</span>
+      </div>
+      <div style="background:#EEF6F5;border-radius:7px;height:16px;overflow:hidden;">
+        <div style="background:${barColor};height:100%;width:${pct}%;border-radius:7px;transition:width .3s;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderInfographics(){
+  const instCounts = computeImprovementCountsByInstitution();
+  renderBarList('instImprovementChart', instCounts, 'linear-gradient(90deg, var(--blue), var(--teal))');
+  renderBarList('domainCountChart', computeDomainCounts(), 'linear-gradient(90deg, var(--teal), var(--green))');
+
+  document.getElementById('infoTotalRecords').textContent = ALL_RECORDS.length;
+  const improvedCount = ALL_RECORDS.filter(r=>{
+    const fut = r.appState && r.appState.future;
+    return fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+  }).length;
+  document.getElementById('infoTotalImprovements').textContent = improvedCount;
+
+  const deltas = ALL_RECORDS.map(r=>{
+    const cur = r.appState && r.appState.current;
+    const fut = r.appState && r.appState.future;
+    const curPce = cur ? computeQuickPCE(cur) : null;
+    const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+    const futPce = futValid ? computeQuickPCE(fut) : null;
+    return (curPce!=null && futPce!=null) ? (futPce-curPce) : null;
+  }).filter(d=>d!=null);
+  const avgDelta = deltas.length ? (deltas.reduce((a,b)=>a+b,0)/deltas.length) : null;
+  document.getElementById('infoAvgImprovement').textContent = avgDelta!=null ? ((avgDelta>=0?'+':'')+avgDelta.toFixed(1)+' نقطة') : '—';
+
+  const topInst = Object.entries(instCounts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('infoTopInstitution').textContent = topInst ? topInst[0]+' ('+topInst[1]+')' : '—';
+}
+
 function renderAdmin(){
   document.getElementById("statInstCount").textContent = ALL_INSTITUTIONS.length;
   document.getElementById("statEmpCount").textContent = ALL_EMPLOYEES.length;
@@ -948,6 +1039,7 @@ function renderAdmin(){
   }
 
   renderAdminVsms();
+  renderInfographics();
 }
 
 function computeBottleneckCount(state){
@@ -1116,6 +1208,7 @@ function renderAdminVsms(){
         <td>
           <button class="btn-outline" style="padding:5px 10px;font-size:12px;border-radius:7px;" onclick="openRecordAsAdmin('${r.id}')">فتح</button>
           <button class="btn-danger-mini" onclick="toggleRecordClosed('${r.id}', ${!r.closed})">${r.closed?'فتح':'إغلاق'}</button>
+          <button class="btn-danger-mini" onclick="deleteRecord('${r.id}')">حذف</button>
         </td>
       </tr>`;
     }).join("");
@@ -2354,7 +2447,7 @@ function submitComment(){
   const textEl = document.getElementById('newCommentText');
   const text = textEl.value.trim();
   if(!text || !currentRecordId) return;
-  const author = editorReturnTarget === 'admin' ? 'الأدمن' : (currentInstitution ? currentInstitution.name : 'المؤسسة');
+  const author = editorReturnTarget === 'admin' ? 'المدير' : (currentInstitution ? currentInstitution.name : 'المؤسسة');
   const comment = { author, text, createdAt: new Date() };
   const rec = ALL_RECORDS.find(r=>r.id===currentRecordId);
   const updatedComments = (rec && rec.comments ? rec.comments.slice() : []).concat([comment]);
@@ -2412,6 +2505,7 @@ function openRecordAsInstitution(id){
 }
 
 function deleteRecord(id){
+  if(!currentAdmin){ alert('حذف الخرائط متاح فقط من حساب المدير.'); return; }
   if(!confirm('هل تريد حذف هذه الخريطة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
   db.collection(RECORDS_COLLECTION).doc(id).delete();
 }
@@ -2448,7 +2542,6 @@ function renderEmployeeRecordsList(){
         <td>${futPce!=null ? futPce.toFixed(1)+'%' : '—'}</td>
         <td>
           <button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordById('${r.id}')">فتح</button>
-          <button class="btn-danger-mini" onclick="deleteRecord('${r.id}')">حذف</button>
         </td>
       </tr>`;
     }).join('');
