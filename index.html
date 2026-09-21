@@ -107,6 +107,17 @@ input.field-input, select.field-input{ width:100%; padding:9px 11px; border:1.5p
 .stat .value{ font-family:'Cairo',sans-serif; font-size:22px; font-weight:800; color:var(--navy); }
 footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:30px 0; }
 
+#engineAppRoot.read-only-mode{ pointer-events:none; opacity:0.88; filter:grayscale(0.12); }
+.comment-item{ background:#F3FAF9; border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:13px; }
+.comment-item .meta{ font-size:11.5px; color:var(--text-muted); margin-bottom:4px; }
+.alert-card{ background:#FDEDEC; border:1px solid #F0C7C2; border-radius:12px; padding:14px 18px; margin-bottom:16px; font-size:13.5px; color:#7a2b21; }
+.alert-card a{ color:#7a2b21; font-weight:700; cursor:pointer; text-decoration:underline; }
+.status-badge{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700; }
+.status-open{ background:#E9F7EF; color:var(--green); }
+.status-closed{ background:#FDEDEC; color:var(--red); }
+.filter-bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+.filter-bar .field-input{ width:auto; min-width:150px; }
+
   :root{
     --primary:#0F6E6B;
     --primary-dark:#0B4F4D;
@@ -267,8 +278,19 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>العنوان</th><th>المجال</th><th>آخر تحديث</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th></th></tr></thead>
+            <thead><tr><th>العنوان</th><th>المجال</th><th>آخر تحديث</th><th>الحالة</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th></th></tr></thead>
             <tbody id="employeeRecordsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="t">🏆 مشاريع تحسين من كل أنحاء المديرية</span></h2>
+        <div class="empty-msg" style="text-align:right; padding:0 0 14px;">للتشجيع والاطّلاع على ما ينجزه الزملاء في المؤسسات الأخرى</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>العنوان</th><th>المجال</th><th>الموظف</th><th>المؤسسة</th></tr></thead>
+            <tbody id="galleryTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -283,11 +305,22 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <span id="editorSaveNote" style="font-size:12.5px;"></span>
-          <button class="btn btn-primary" onclick="saveCurrentRecord()">💾 حفظ</button>
+          <button class="btn btn-primary" id="editorSaveBtn" onclick="saveCurrentRecord()">💾 حفظ</button>
         </div>
       </div>
 
-      <div class="app">
+      <div id="editorReadOnlyBanner" class="hidden card" style="background:#FBF6E9; border-color:#E5D9AE; padding:12px 18px; font-size:13.5px; color:#7a5c07;"></div>
+
+      <div class="card" id="commentsCard">
+        <h2><span class="t">💬 التعليقات والملاحظات</span></h2>
+        <div id="commentsList" style="margin-bottom:12px;"></div>
+        <div id="commentComposer" class="hidden">
+          <textarea class="field-input" id="newCommentText" placeholder="اكتب تعليقًا أو ملاحظة للموظف..." style="margin-bottom:8px;"></textarea>
+          <button class="btn btn-primary" onclick="submitComment()">إرسال التعليق</button>
+        </div>
+      </div>
+
+      <div class="app" id="engineAppRoot">
 <div class="tabs">
     <button class="tab-btn e-active" data-tab="current" onclick="switchTab('current')">📍 الوضع الحالي</button>
     <button class="tab-btn" data-tab="future" onclick="switchTab('future')">🚀 الوضع المستقبلي (بعد التحسين)</button>
@@ -457,7 +490,24 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       </div>
     </div>
     <div class="card">
-      <div class="empty-msg">🗂 عرض خرائط VSM الخاصة بموظفي مؤسستك سيتوفر هنا في مرحلة قادمة من التطوير.</div>
+      <div id="instBottleneckAlert"></div>
+      <h2><span class="t">🗂 خرائط VSM لموظفي المؤسسة</span></h2>
+      <div class="filter-bar">
+        <select class="field-input" id="instFilterDomain" onchange="renderInstitutionVsms()"><option value="">كل المجالات</option></select>
+        <input class="field-input" type="date" id="instFilterFrom" onchange="renderInstitutionVsms()" title="من تاريخ">
+        <input class="field-input" type="date" id="instFilterTo" onchange="renderInstitutionVsms()" title="إلى تاريخ">
+        <button class="btn btn-ghost" onclick="clearInstitutionFilters()">مسح الفلاتر</button>
+        <button class="btn btn-outline" onclick="exportInstitutionVsmReport()">⬇ تصدير تقرير (CSV)</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>العنوان</th><th>الموظف</th><th>المسمى الوظيفي</th><th>المجال</th>
+            <th>آخر تحديث</th><th>الحالة</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th></th>
+          </tr></thead>
+          <tbody id="instVsmsTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -548,12 +598,21 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </div>
       </div>
       <div class="card">
+        <div id="adminBottleneckAlert"></div>
         <h2><span class="t">كل خرائط VSM المحفوظة</span></h2>
+        <div class="filter-bar">
+          <select class="field-input" id="adminFilterDomain" onchange="renderAdminVsms()"><option value="">كل المجالات</option></select>
+          <select class="field-input" id="adminFilterInstitution" onchange="renderAdminVsms()"><option value="">كل المؤسسات</option></select>
+          <input class="field-input" type="date" id="adminFilterFrom" onchange="renderAdminVsms()" title="من تاريخ">
+          <input class="field-input" type="date" id="adminFilterTo" onchange="renderAdminVsms()" title="إلى تاريخ">
+          <button class="btn btn-ghost" onclick="clearAdminVsmFilters()">مسح الفلاتر</button>
+          <button class="btn btn-outline" onclick="exportAdminVsmReport()">⬇ تصدير تقرير (CSV)</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr>
               <th>العنوان</th><th>المؤسسة</th><th>الموظف</th><th>المسمى الوظيفي</th><th>المجال</th>
-              <th>آخر تحديث</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th>التحسّن</th><th></th>
+              <th>آخر تحديث</th><th>الحالة</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th>التحسّن</th><th></th>
             </tr></thead>
             <tbody id="adminVsmsTableBody"></tbody>
           </table>
@@ -891,14 +950,146 @@ function renderAdmin(){
   renderAdminVsms();
 }
 
+function computeBottleneckCount(state){
+  if(!state || !state.rows) return 0;
+  const avail = Number(state.availableTime)||0, demand = Number(state.dailyDemand)||0;
+  const takt = demand>0 ? avail/demand : 0;
+  if(takt<=0) return 0;
+  let count = 0;
+  state.rows.forEach(r=>{
+    if(!r.processName || !r.processName.trim()) return;
+    const ct = Number(r.cycleTime)||0;
+    const st = stationTakt(r, takt);
+    if(ct > st) count++;
+  });
+  return count;
+}
+
+function recordBottleneckTotal(r){
+  const cur = r.appState && r.appState.current;
+  const fut = r.appState && r.appState.future;
+  return (cur?computeBottleneckCount(cur):0) + (fut?computeBottleneckCount(fut):0);
+}
+
+function renderBottleneckAlert(containerId, records, openFnName){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const withBottlenecks = records.filter(r => recordBottleneckTotal(r) > 0);
+  if(withBottlenecks.length === 0){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="alert-card">
+    🔔 <b>${withBottlenecks.length}</b> خريطة تحتوي على عنق زجاجة نشط (وقت دورة يتجاوز تاكت المحطة):
+    ${withBottlenecks.map(r=>`<a onclick="${openFnName}('${r.id}')">${escHtml(r.title||'بدون عنوان')} — ${escHtml(r.employeeName||'')}</a>`).join('، ')}
+  </div>`;
+}
+
+function populateDomainFilterOptions(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const current = sel.value;
+  const usedOnly = ALL_RECORDS.map(r=>r.domain).filter(Boolean);
+  const allOptions = Array.from(new Set(ALL_DOMAINS.concat(usedOnly)));
+  sel.innerHTML = '<option value="">كل المجالات</option>' + allOptions.map(d=>`<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+  sel.value = current;
+}
+
+function filterRecords(records, {domain, institutionId, dateFrom, dateTo}){
+  return records.filter(r=>{
+    if(domain && r.domain !== domain) return false;
+    if(institutionId && r.institutionId !== institutionId) return false;
+    if(dateFrom || dateTo){
+      const d = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate() : null;
+      if(!d) return false;
+      if(dateFrom && d < new Date(dateFrom+'T00:00:00')) return false;
+      if(dateTo && d > new Date(dateTo+'T23:59:59')) return false;
+    }
+    return true;
+  });
+}
+
+function statusBadgeForRecord(r){
+  return r.closed
+    ? '<span class="status-badge status-closed">🔒 مغلقة</span>'
+    : '<span class="status-badge status-open">🔓 مفتوحة</span>';
+}
+
+function csvEscape(v){
+  const s = String(v==null?'':v);
+  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function buildAndDownloadCSV(records, filename){
+  const headers = ['المؤسسة','الموظف','المسمى الوظيفي','المجال','العنوان','آخر تحديث','الحالة','PCE الحالي','PCE المستقبلي','التحسّن'];
+  const rows = records.map(r=>{
+    const inst = ALL_INSTITUTIONS.find(i=>i.id===r.institutionId);
+    const cur = r.appState && r.appState.current;
+    const fut = r.appState && r.appState.future;
+    const curPce = cur ? computeQuickPCE(cur) : null;
+    const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+    const futPce = futValid ? computeQuickPCE(fut) : null;
+    const updated = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleDateString('ar') : '';
+    const delta = (curPce!=null && futPce!=null) ? (futPce-curPce).toFixed(1) : '';
+    return [
+      inst?inst.name:'', r.employeeName||'', r.employeeJobTitle||'', r.domain||'', r.title||'',
+      updated, r.closed?'مغلقة':'مفتوحة',
+      curPce!=null?curPce.toFixed(1):'', futPce!=null?futPce.toFixed(1):'', delta
+    ];
+  });
+  const csv = '\uFEFF' + [headers, ...rows].map(row=>row.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+}
+
+function clearAdminVsmFilters(){
+  document.getElementById('adminFilterDomain').value = '';
+  document.getElementById('adminFilterInstitution').value = '';
+  document.getElementById('adminFilterFrom').value = '';
+  document.getElementById('adminFilterTo').value = '';
+  renderAdminVsms();
+}
+
+function exportAdminVsmReport(){
+  const filtered = getFilteredAdminRecords();
+  buildAndDownloadCSV(filtered, 'تقرير-خرائط-VSM.csv');
+}
+
+function toggleRecordClosed(id, closeIt){
+  const label = closeIt ? 'إغلاق' : 'إعادة فتح';
+  if(!confirm(`هل تريد ${label} هذه الخريطة؟`)) return;
+  db.collection(RECORDS_COLLECTION).doc(id).update({ closed: !!closeIt });
+}
+
+function getFilteredAdminRecords(){
+  return filterRecords(ALL_RECORDS, {
+    domain: document.getElementById('adminFilterDomain').value,
+    institutionId: document.getElementById('adminFilterInstitution').value,
+    dateFrom: document.getElementById('adminFilterFrom').value,
+    dateTo: document.getElementById('adminFilterTo').value
+  });
+}
+
 function renderAdminVsms(){
   const tbody = document.getElementById("adminVsmsTableBody");
   if(!tbody) return;
 
-  if(ALL_RECORDS.length===0){
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-msg">لا توجد خرائط VSM مضافة بعد.</td></tr>`;
+  populateDomainFilterOptions('adminFilterDomain');
+  const instSel = document.getElementById('adminFilterInstitution');
+  if(instSel){
+    const cur = instSel.value;
+    instSel.innerHTML = '<option value="">كل المؤسسات</option>' + ALL_INSTITUTIONS.map(i=>`<option value="${i.id}">${escHtml(i.name)}</option>`).join('');
+    instSel.value = cur;
+  }
+
+  const filtered = getFilteredAdminRecords();
+  renderBottleneckAlert('adminBottleneckAlert', filtered, 'openRecordAsAdmin');
+
+  if(filtered.length===0){
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-msg">لا توجد خرائط VSM مطابقة.</td></tr>`;
   } else {
-    tbody.innerHTML = ALL_RECORDS.map(r => {
+    tbody.innerHTML = filtered.map(r => {
       const inst = ALL_INSTITUTIONS.find(i=>i.id===r.institutionId);
       const cur = r.appState && r.appState.current;
       const fut = r.appState && r.appState.future;
@@ -918,10 +1109,14 @@ function renderAdminVsms(){
         <td>${escHtml(r.employeeJobTitle||'—')}</td>
         <td>${escHtml(r.domain||'—')}</td>
         <td>${updated}</td>
+        <td>${statusBadgeForRecord(r)}</td>
         <td>${curPce!=null?curPce.toFixed(1)+'%':'—'}</td>
         <td>${futPce!=null?futPce.toFixed(1)+'%':'—'}</td>
         <td>${deltaHtml}</td>
-        <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordAsAdmin('${r.id}')">فتح وتعديل</button></td>
+        <td>
+          <button class="btn-outline" style="padding:5px 10px;font-size:12px;border-radius:7px;" onclick="openRecordAsAdmin('${r.id}')">فتح</button>
+          <button class="btn-danger-mini" onclick="toggleRecordClosed('${r.id}', ${!r.closed})">${r.closed?'فتح':'إغلاق'}</button>
+        </td>
       </tr>`;
     }).join("");
   }
@@ -943,6 +1138,66 @@ function renderAdminVsms(){
   ALL_RECORDS.forEach(r => { domainCounts[r.domain] = (domainCounts[r.domain]||0)+1; });
   const topDomain = Object.entries(domainCounts).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById("statVsmTopDomain").textContent = topDomain ? topDomain[0]+' ('+topDomain[1]+')' : '—';
+}
+
+/* ---------------- Institution VSM view (read-only + comments) ---------------- */
+function clearInstitutionFilters(){
+  document.getElementById('instFilterDomain').value = '';
+  document.getElementById('instFilterFrom').value = '';
+  document.getElementById('instFilterTo').value = '';
+  renderInstitutionVsms();
+}
+
+function getInstitutionRecords(){
+  if(!currentInstitution) return [];
+  return ALL_RECORDS.filter(r => r.institutionId === currentInstitution.id);
+}
+
+function getFilteredInstitutionRecords(){
+  return filterRecords(getInstitutionRecords(), {
+    domain: document.getElementById('instFilterDomain').value,
+    institutionId: '',
+    dateFrom: document.getElementById('instFilterFrom').value,
+    dateTo: document.getElementById('instFilterTo').value
+  });
+}
+
+function exportInstitutionVsmReport(){
+  buildAndDownloadCSV(getFilteredInstitutionRecords(), 'تقرير-خرائط-VSM-' + (currentInstitution?currentInstitution.name:'') + '.csv');
+}
+
+function renderInstitutionVsms(){
+  const tbody = document.getElementById('instVsmsTableBody');
+  if(!tbody || !currentInstitution) return;
+
+  const mine = getInstitutionRecords();
+  populateDomainFilterOptions('instFilterDomain');
+  const filtered = getFilteredInstitutionRecords();
+  renderBottleneckAlert('instBottleneckAlert', filtered, 'openRecordAsInstitution');
+
+  if(filtered.length===0){
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-msg">لا توجد خرائط VSM مطابقة.</td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(r=>{
+      const cur = r.appState && r.appState.current;
+      const fut = r.appState && r.appState.future;
+      const curPce = cur ? computeQuickPCE(cur) : null;
+      const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+      const futPce = futValid ? computeQuickPCE(fut) : null;
+      const updated = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleDateString('ar') : '—';
+      return `<tr>
+        <td>${escHtml(r.title||'بدون عنوان')}</td>
+        <td>${escHtml(r.employeeName||'—')}</td>
+        <td>${escHtml(r.employeeJobTitle||'—')}</td>
+        <td>${escHtml(r.domain||'—')}</td>
+        <td>${updated}</td>
+        <td>${statusBadgeForRecord(r)}</td>
+        <td>${curPce!=null?curPce.toFixed(1)+'%':'—'}</td>
+        <td>${futPce!=null?futPce.toFixed(1)+'%':'—'}</td>
+        <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordAsInstitution('${r.id}')">عرض</button></td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 function switchAdminTab(name){
@@ -1006,6 +1261,7 @@ function enterInstitution(rec){
   document.getElementById("instWho").textContent = rec.name;
   showScreen("institutionScreen");
   renderInstitutionEmployees();
+  renderInstitutionVsms();
 }
 function enterEmployee(rec){
   currentEmployee = rec;
@@ -1055,9 +1311,9 @@ document.getElementById("adminChangePwBtn").onclick = ()=>{
 
 listenToSettings();
 listenToDomains();
-listenToInstitutions(()=>{ if(currentAdmin) renderAdmin(); });
+listenToInstitutions(()=>{ if(currentAdmin) renderAdmin(); if(currentInstitution) renderInstitutionVsms(); });
 listenToEmployees(()=>{ if(currentAdmin) renderAdmin(); if(currentInstitution) renderInstitutionEmployees(); });
-listenToRecords(()=>{ if(currentAdmin) renderAdmin(); if(currentEmployee) renderEmployeeRecordsList(); });
+listenToRecords(()=>{ if(currentAdmin) renderAdmin(); if(currentEmployee) renderEmployeeRecordsList(); if(currentInstitution) renderInstitutionVsms(); });
 
 if(!firebaseReady){
   console.warn("Firebase غير مُهيّأ بعد. أضف إعدادات مشروعك في FIREBASE_CONFIG أعلى ملف index.html.");
@@ -1928,7 +2184,7 @@ function saveCurrentRecord(){
 }
 
 function returnToEmployeeList(){
-  if(currentRecordId && hasUnsavedChanges){
+  if(currentRecordId && hasUnsavedChanges && editorReturnTarget !== 'institution-view'){
     saveCurrentRecord();
   }
   clearTimeout(autoSaveTimer);
@@ -1937,9 +2193,17 @@ function returnToEmployeeList(){
   if(editorReturnTarget === 'admin'){
     document.getElementById('employeeListView').classList.add('hidden');
     document.getElementById('empLogoutBtn').style.display = '';
+    document.getElementById('editorBackBtn').textContent = '→ رجوع لقائمتي';
     showScreen('adminScreen');
     switchAdminTab('vsms');
     renderAdminVsms();
+    editorReturnTarget = 'employeeList';
+  } else if(editorReturnTarget === 'institution-view'){
+    document.getElementById('employeeListView').classList.add('hidden');
+    document.getElementById('empLogoutBtn').style.display = '';
+    document.getElementById('editorBackBtn').textContent = '→ رجوع لقائمتي';
+    showScreen('institutionScreen');
+    renderInstitutionVsms();
     editorReturnTarget = 'employeeList';
   } else {
     document.getElementById('employeeListView').classList.remove('hidden');
@@ -2042,6 +2306,8 @@ function submitCreateRecord(){
     domain: domain,
     title: title,
     appState: initial,
+    closed: false,
+    comments: [],
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(docRef=>{
@@ -2050,19 +2316,78 @@ function submitCreateRecord(){
   }).catch(e=>{ err.textContent = 'حدث خطأ أثناء الإنشاء.'; console.error(e); });
 }
 
+function applyReadOnlyMode(isReadOnly, bannerText){
+  const root = document.getElementById('engineAppRoot');
+  const banner = document.getElementById('editorReadOnlyBanner');
+  const saveBtn = document.getElementById('editorSaveBtn');
+  root.classList.toggle('read-only-mode', isReadOnly);
+  if(isReadOnly){
+    banner.textContent = '🔒 ' + bannerText;
+    banner.classList.remove('hidden');
+    saveBtn.classList.add('hidden');
+  } else {
+    banner.classList.add('hidden');
+    saveBtn.classList.remove('hidden');
+  }
+}
+
+function renderComments(record){
+  const list = document.getElementById('commentsList');
+  const comments = record.comments || [];
+  if(comments.length === 0){
+    list.innerHTML = '<div class="empty-msg" style="padding:6px 0;">لا توجد تعليقات بعد.</div>';
+  } else {
+    list.innerHTML = comments.map(c=>{
+      const when = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleString('ar') : '';
+      return `<div class="comment-item">
+        <div class="meta">${escHtml(c.author||'')} ${when?('• '+when):''}</div>
+        <div>${escHtml(c.text||'')}</div>
+      </div>`;
+    }).join('');
+  }
+  const composer = document.getElementById('commentComposer');
+  const canComment = (editorReturnTarget === 'admin' || editorReturnTarget === 'institution-view');
+  composer.classList.toggle('hidden', !canComment);
+}
+
+function submitComment(){
+  const textEl = document.getElementById('newCommentText');
+  const text = textEl.value.trim();
+  if(!text || !currentRecordId) return;
+  const author = editorReturnTarget === 'admin' ? 'الأدمن' : (currentInstitution ? currentInstitution.name : 'المؤسسة');
+  const comment = { author, text, createdAt: new Date() };
+  const rec = ALL_RECORDS.find(r=>r.id===currentRecordId);
+  const updatedComments = (rec && rec.comments ? rec.comments.slice() : []).concat([comment]);
+  db.collection(RECORDS_COLLECTION).doc(currentRecordId).update({ comments: updatedComments }).then(()=>{
+    textEl.value = '';
+  }).catch(err=>{ console.error(err); alert('تعذر إرسال التعليق.'); });
+}
+
 function openRecordInEditor(record){
   currentRecordId = record.id;
   document.getElementById('editorRecordTitle').textContent = record.title || 'بدون عنوان';
   document.getElementById('editorRecordDomain').textContent = record.domain || '';
   showScreen('employeeScreen');
   loadAppStateIntoEditor(record.appState || blankAppState());
+  renderComments(record);
   document.getElementById('employeeListView').classList.add('hidden');
   document.getElementById('employeeEditorView').classList.remove('hidden');
+
+  if(editorReturnTarget === 'institution-view'){
+    applyReadOnlyMode(true, 'أنت تعرض هذه الخريطة بصلاحية اطّلاع فقط، ولا يمكنك التعديل عليها.');
+    drawDiagram('current'); drawDiagram('future');
+  } else if(editorReturnTarget === 'employeeList' && record.closed){
+    applyReadOnlyMode(true, 'تم إغلاق هذه الخريطة من قبل الإدارة للحفاظ على البيانات، ولا يمكن التعديل عليها حالياً.');
+    drawDiagram('current'); drawDiagram('future');
+  } else {
+    applyReadOnlyMode(false, '');
+  }
 }
 
 function openRecordById(id){
   const rec = ALL_RECORDS.find(r=>r.id===id);
   if(!rec){ alert('تعذر العثور على هذه الخريطة.'); return; }
+  editorReturnTarget = 'employeeList';
   openRecordInEditor(rec);
 }
 
@@ -2073,6 +2398,16 @@ function openRecordAsAdmin(id){
   document.getElementById('empWho').textContent = '⚙ وضع الأدمن — تعديل خريطة الموظف: ' + (rec.employeeName||'') + (rec.employeeJobTitle ? (' — '+rec.employeeJobTitle) : '');
   document.getElementById('empLogoutBtn').style.display = 'none';
   document.getElementById('editorBackBtn').textContent = '→ رجوع للوحة الأدمن';
+  openRecordInEditor(rec);
+}
+
+function openRecordAsInstitution(id){
+  const rec = ALL_RECORDS.find(r=>r.id===id);
+  if(!rec){ alert('تعذر العثور على هذه الخريطة.'); return; }
+  editorReturnTarget = 'institution-view';
+  document.getElementById('empWho').textContent = '🏥 عرض خريطة الموظف: ' + (rec.employeeName||'') + (rec.employeeJobTitle ? (' — '+rec.employeeJobTitle) : '');
+  document.getElementById('empLogoutBtn').style.display = 'none';
+  document.getElementById('editorBackBtn').textContent = '→ رجوع لخرائط المؤسسة';
   openRecordInEditor(rec);
 }
 
@@ -2095,26 +2430,52 @@ function renderEmployeeRecordsList(){
   if(!tbody || !currentEmployee) return;
   const myRecords = ALL_RECORDS.filter(r => r.employeeDocId === currentEmployee.id);
   if(myRecords.length === 0){
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">لا توجد خرائط محفوظة بعد. اضغط "+ إنشاء VSM جديد" للبدء.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-msg">لا توجد خرائط محفوظة بعد. اضغط "+ إنشاء VSM جديد" للبدء.</td></tr>`;
+  } else {
+    tbody.innerHTML = myRecords.map(r=>{
+      const cur = r.appState && r.appState.current;
+      const fut = r.appState && r.appState.future;
+      const curPce = cur ? computeQuickPCE(cur) : null;
+      const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+      const futPce = futValid ? computeQuickPCE(fut) : null;
+      const updated = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleDateString('ar') : '—';
+      return `<tr>
+        <td>${escHtml(r.title||'بدون عنوان')}</td>
+        <td>${escHtml(r.domain||'—')}</td>
+        <td>${updated}</td>
+        <td>${statusBadgeForRecord(r)}</td>
+        <td>${curPce!=null ? curPce.toFixed(1)+'%' : '—'}</td>
+        <td>${futPce!=null ? futPce.toFixed(1)+'%' : '—'}</td>
+        <td>
+          <button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordById('${r.id}')">فتح</button>
+          <button class="btn-danger-mini" onclick="deleteRecord('${r.id}')">حذف</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  renderVsmGallery();
+}
+
+function renderVsmGallery(){
+  const tbody = document.getElementById('galleryTableBody');
+  if(!tbody) return;
+  const valid = ALL_RECORDS.filter(r => r.title && r.title.trim()!=='');
+  if(valid.length === 0){
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">لا توجد مشاريع بعد.</td></tr>`;
     return;
   }
-  tbody.innerHTML = myRecords.map(r=>{
-    const cur = r.appState && r.appState.current;
-    const fut = r.appState && r.appState.future;
-    const curPce = cur ? computeQuickPCE(cur) : null;
-    const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
-    const futPce = futValid ? computeQuickPCE(fut) : null;
-    const updated = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleDateString('ar') : '—';
+  const sorted = valid.slice().sort((a,b)=>{
+    const ta = (a.updatedAt && a.updatedAt.toDate) ? a.updatedAt.toDate().getTime() : 0;
+    const tb = (b.updatedAt && b.updatedAt.toDate) ? b.updatedAt.toDate().getTime() : 0;
+    return tb - ta;
+  });
+  tbody.innerHTML = sorted.map(r=>{
+    const inst = ALL_INSTITUTIONS.find(i=>i.id===r.institutionId);
     return `<tr>
-      <td>${escHtml(r.title||'بدون عنوان')}</td>
+      <td>${escHtml(r.title)}</td>
       <td>${escHtml(r.domain||'—')}</td>
-      <td>${updated}</td>
-      <td>${curPce!=null ? curPce.toFixed(1)+'%' : '—'}</td>
-      <td>${futPce!=null ? futPce.toFixed(1)+'%' : '—'}</td>
-      <td>
-        <button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordById('${r.id}')">فتح</button>
-        <button class="btn-danger-mini" onclick="deleteRecord('${r.id}')">حذف</button>
-      </td>
+      <td>${escHtml(r.employeeName||'—')}</td>
+      <td>${inst?escHtml(inst.name):'—'}</td>
     </tr>`;
   }).join('');
 }
