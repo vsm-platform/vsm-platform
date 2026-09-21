@@ -505,6 +505,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       <button class="tab2-btn active" data-t2="institutions" onclick="switchAdminTab('institutions')">🏥 المؤسسات</button>
       <button class="tab2-btn" data-t2="employees" onclick="switchAdminTab('employees')">👷 الموظفون</button>
       <button class="tab2-btn" data-t2="vsms" onclick="switchAdminTab('vsms')">🗂 خرائط VSM</button>
+      <button class="tab2-btn" data-t2="domains" onclick="switchAdminTab('domains')">🏷 المجالات</button>
     </div>
 
     <div id="admin-institutions" class="tab2-panel active">
@@ -557,6 +558,24 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
             <tbody id="adminVsmsTableBody"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div id="admin-domains" class="tab2-panel">
+      <div class="card">
+        <h2><span class="t">مجالات خرائط VSM</span></h2>
+        <div class="btn-row" style="margin-top:0; margin-bottom:6px;">
+          <input class="field-input" id="newDomainName" placeholder="مثال: التغذية" style="max-width:260px;">
+          <button class="btn btn-primary" onclick="submitAddDomain()">+ إضافة مجال</button>
+        </div>
+        <div class="modal-error" id="addDomainError"></div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table>
+            <thead><tr><th>اسم المجال</th><th></th></tr></thead>
+            <tbody id="domainsTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-msg" style="text-align:right; padding:12px 4px 0;">ملاحظة: خيار "أخرى" متاح دائماً تلقائياً عند إنشاء خريطة جديدة، ويتيح للموظف كتابة مجال مخصص بنفسه.</div>
       </div>
     </div>
 
@@ -624,7 +643,11 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
     <label class="field-label">عنوان الخريطة</label>
     <input class="field-input" id="newRecordTitle" placeholder="مثال: رحلة المريض في الصيدلية" style="margin-bottom:12px;">
     <label class="field-label">المجال</label>
-    <select class="field-input" id="newRecordDomain" style="margin-bottom:6px;"></select>
+    <select class="field-input" id="newRecordDomain" style="margin-bottom:10px;" onchange="onRecordDomainChange()"></select>
+    <div id="newRecordDomainOtherWrap" class="hidden" style="margin-bottom:6px;">
+      <label class="field-label">اكتب اسم المجال</label>
+      <input class="field-input" id="newRecordDomainOther" placeholder="مثال: التغذية العلاجية">
+    </div>
     <div class="modal-error" id="createRecordError"></div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="submitCreateRecord()">إنشاء وفتح</button>
@@ -671,6 +694,8 @@ let currentAdmin = false;
 let currentInstitution = null;
 let currentEmployee = null;
 let editorReturnTarget = 'employeeList'; // 'employeeList' | 'admin'
+const DEFAULT_DOMAINS = ["صيدلة","تمريض","الطوارئ","العيادات الخارجية","المختبر","الأشعة","الإدارة"];
+let ALL_DOMAINS = DEFAULT_DOMAINS.slice();
 
 /* ============================================================
    Firestore listeners (real-time cache sync)
@@ -1029,6 +1054,7 @@ document.getElementById("adminChangePwBtn").onclick = ()=>{
 };
 
 listenToSettings();
+listenToDomains();
 listenToInstitutions(()=>{ if(currentAdmin) renderAdmin(); });
 listenToEmployees(()=>{ if(currentAdmin) renderAdmin(); if(currentInstitution) renderInstitutionEmployees(); });
 listenToRecords(()=>{ if(currentAdmin) renderAdmin(); if(currentEmployee) renderEmployeeRecordsList(); });
@@ -1097,8 +1123,8 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,
    Tabs
    ============================================================ */
 function switchTab(name){
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-'+name));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('e-active', b.dataset.tab===name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('e-active', p.id === 'tab-'+name));
   hideTooltip();
 }
 
@@ -1825,11 +1851,17 @@ function computeStatsFor(rowsArr, takt){
    ============================================================ */
 let currentRecordId = null;   // Firestore doc id of the record currently open
 let hasUnsavedChanges = false;
+let autoSaveTimer = null;
+const AUTO_SAVE_DELAY = 1500; // ms after last edit before auto-saving
 
 function markUnsaved(){
   hasUnsavedChanges = true;
   const note = document.getElementById('editorSaveNote');
-  if(note){ note.textContent = '\u26a0 لديك تغييرات غير محفوظة'; note.style.color = 'var(--e-danger, #C0392B)'; }
+  if(note){ note.textContent = '\u23f3 جارٍ الحفظ التلقائي...'; note.style.color = 'var(--gold, #B8860B)'; }
+  if(currentRecordId){
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(()=>{ saveCurrentRecord(); }, AUTO_SAVE_DELAY);
+  }
 }
 
 function blankAppState(){
@@ -1840,6 +1872,7 @@ function blankAppState(){
 }
 
 function loadAppStateIntoEditor(state){
+  clearTimeout(autoSaveTimer);
   appState = state;
   const allIds = [0, ...appState.current.rows.map(r=>r.id||0), ...appState.future.rows.map(r=>r.id||0)];
   rowIdCounter = Math.max.apply(null, allIds);
@@ -1875,6 +1908,7 @@ function loadAppStateIntoEditor(state){
 
 function saveCurrentRecord(){
   if(!currentRecordId){ return; }
+  clearTimeout(autoSaveTimer);
   if(!firebaseReady){ alert('قاعدة البيانات غير متصلة.'); return; }
   const title = appState.current.header.procedureName || appState.future.header.procedureName || 'خريطة بدون عنوان';
   db.collection(RECORDS_COLLECTION).doc(currentRecordId).update({
@@ -1894,11 +1928,10 @@ function saveCurrentRecord(){
 }
 
 function returnToEmployeeList(){
-  if(hasUnsavedChanges){
-    if(confirm('لديك تغييرات غير محفوظة. هل تريد حفظها قبل الرجوع؟')){
-      saveCurrentRecord();
-    }
+  if(currentRecordId && hasUnsavedChanges){
+    saveCurrentRecord();
   }
+  clearTimeout(autoSaveTimer);
   currentRecordId = null;
   document.getElementById('employeeEditorView').classList.add('hidden');
   if(editorReturnTarget === 'admin'){
@@ -1918,21 +1951,85 @@ function returnToEmployeeList(){
 /* ============================================================
    Employee VSM records — list, create, open, delete
    ============================================================ */
-const VSM_DOMAINS = ["صيدلة","تمريض","الطوارئ","العيادات الخارجية","المختبر","الأشعة","الإدارة","أخرى"];
+
+function listenToDomains(){
+  if(!firebaseReady){ ALL_DOMAINS = DEFAULT_DOMAINS.slice(); renderDomainsAdmin(); return; }
+  db.collection(SETTINGS_COLLECTION).doc('domains').onSnapshot(doc=>{
+    if(doc.exists && Array.isArray(doc.data().list)){
+      ALL_DOMAINS = doc.data().list;
+    } else {
+      db.collection(SETTINGS_COLLECTION).doc('domains').set({
+        list: DEFAULT_DOMAINS, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      ALL_DOMAINS = DEFAULT_DOMAINS.slice();
+    }
+    renderDomainsAdmin();
+  }, err=>console.error(err));
+}
+
+function renderDomainsAdmin(){
+  const tbody = document.getElementById('domainsTableBody');
+  if(!tbody) return;
+  if(ALL_DOMAINS.length===0){
+    tbody.innerHTML = `<tr><td colspan="2" class="empty-msg">لا توجد مجالات مضافة.</td></tr>`;
+  } else {
+    tbody.innerHTML = ALL_DOMAINS.map((d,idx)=>`<tr>
+      <td>${escHtml(d)}</td>
+      <td><button class="btn-danger-mini" onclick="deleteDomain(${idx})">حذف</button></td>
+    </tr>`).join('');
+  }
+}
+
+function submitAddDomain(){
+  const input = document.getElementById('newDomainName');
+  const name = input.value.trim();
+  const err = document.getElementById('addDomainError');
+  if(!name){ err.textContent = 'الرجاء إدخال اسم المجال.'; return; }
+  if(name === 'أخرى'){ err.textContent = '"أخرى" خيار متاح تلقائياً ولا يحتاج إضافة.'; return; }
+  if(ALL_DOMAINS.some(d=>d.toLowerCase()===name.toLowerCase())){ err.textContent = 'هذا المجال موجود بالفعل.'; return; }
+  if(!firebaseReady){ err.textContent = 'قاعدة البيانات غير متصلة.'; return; }
+  const updated = ALL_DOMAINS.concat([name]);
+  db.collection(SETTINGS_COLLECTION).doc('domains').set({
+    list: updated, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{ input.value=''; err.textContent=''; })
+    .catch(()=>{ err.textContent = 'حدث خطأ أثناء الحفظ.'; });
+}
+
+function deleteDomain(idx){
+  if(!confirm('هل تريد حذف هذا المجال من القائمة؟ (الخرائط الموجودة التي تستخدمه لن تتأثر)')) return;
+  const updated = ALL_DOMAINS.filter((_,i)=>i!==idx);
+  db.collection(SETTINGS_COLLECTION).doc('domains').set({
+    list: updated, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+function onRecordDomainChange(){
+  const sel = document.getElementById('newRecordDomain');
+  const wrap = document.getElementById('newRecordDomainOtherWrap');
+  wrap.classList.toggle('hidden', sel.value !== 'أخرى');
+}
 
 function openCreateRecordModal(){
   document.getElementById('newRecordTitle').value = '';
   const sel = document.getElementById('newRecordDomain');
-  sel.innerHTML = VSM_DOMAINS.map(d=>`<option value="${d}">${d}</option>`).join('');
+  const options = ALL_DOMAINS.concat(['أخرى']);
+  sel.innerHTML = options.map(d=>`<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+  document.getElementById('newRecordDomainOther').value = '';
+  document.getElementById('newRecordDomainOtherWrap').classList.add('hidden');
   document.getElementById('createRecordError').textContent = '';
   document.getElementById('createRecordModal').classList.remove('hidden');
 }
 
 function submitCreateRecord(){
   const title = document.getElementById('newRecordTitle').value.trim();
-  const domain = document.getElementById('newRecordDomain').value;
+  let domain = document.getElementById('newRecordDomain').value;
   const err = document.getElementById('createRecordError');
   if(!title){ err.textContent = 'الرجاء إدخال عنوان للخريطة.'; return; }
+  if(domain === 'أخرى'){
+    const other = document.getElementById('newRecordDomainOther').value.trim();
+    if(!other){ err.textContent = 'الرجاء كتابة اسم المجال المخصص.'; return; }
+    domain = other;
+  }
   if(!firebaseReady){ err.textContent = 'قاعدة البيانات غير متصلة.'; return; }
   const initial = blankAppState();
   initial.current.header.procedureName = title;
