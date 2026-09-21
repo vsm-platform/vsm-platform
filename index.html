@@ -107,7 +107,8 @@ input.field-input, select.field-input{ width:100%; padding:9px 11px; border:1.5p
 .stat .value{ font-family:'Cairo',sans-serif; font-size:22px; font-weight:800; color:var(--navy); }
 footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:30px 0; }
 
-#engineAppRoot.read-only-mode{ pointer-events:none; opacity:0.88; filter:grayscale(0.12); }
+#engineAppRoot.read-only-dim{ opacity:0.92; }
+#engineAppRoot.read-only-dim input:disabled, #engineAppRoot.read-only-dim select:disabled, #engineAppRoot.read-only-dim textarea:disabled{ background:#F2F2F2; color:#888; }
 .comment-item{ background:#F3FAF9; border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:13px; }
 .comment-item .meta{ font-size:11.5px; color:var(--text-muted); margin-bottom:4px; }
 .alert-card{ background:#FDEDEC; border:1px solid #F0C7C2; border-radius:12px; padding:14px 18px; margin-bottom:16px; font-size:13.5px; color:#7a2b21; }
@@ -117,6 +118,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
 .status-closed{ background:#FDEDEC; color:var(--red); }
 .filter-bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
 .filter-bar .field-input{ width:auto; min-width:150px; }
+#imagePreviewContent svg{ width:100%; height:auto; display:block; min-width:700px; }
 
   :root{
     --primary:#0F6E6B;
@@ -348,8 +350,8 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </table>
       </div>
       <div class="e-btn-row">
-        <button class="e-btn e-btn-outline" onclick="addRow('current')">+ إضافة عملية</button>
-        <button class="e-btn e-btn-ghost" onclick="resetRows('current')">تفريغ الجدول</button>
+        <button class="e-btn e-btn-outline data-mutate-btn" onclick="addRow('current')">+ إضافة عملية</button>
+        <button class="e-btn e-btn-ghost data-mutate-btn" onclick="resetRows('current')">تفريغ الجدول</button>
       </div>
     </div>
 
@@ -376,6 +378,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       <h2><span class="num">5</span> مخطط تدفق القيمة — الوضع الحالي</h2>
       <div class="e-btn-row" style="margin-top:0; margin-bottom:14px;">
         <button class="e-btn e-btn-primary" onclick="drawDiagram('current')">🖊 ارسم المخطط</button>
+        <button class="e-btn e-btn-outline" id="previewBtn-current" onclick="previewDiagram('diagramWrap-current','خريطة تدفق القيمة — الوضع الحالي')" disabled>🔍 معاينة</button>
         <button class="e-btn e-btn-outline" id="downloadBtn-current" onclick="downloadPNG('current')" disabled>⬇ تحميل المخطط (PNG)</button>
       </div>
       <div id="diagramWrap-current">
@@ -389,7 +392,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
     <div class="e-card">
       <div class="note-msg">💡 هذه الصفحة مخصصة لتوثيق التحسينات المقترحة: انسخ خطوات الوضع الحالي كنقطة بداية، ثم عدّل القيم (بعد تطبيق التحسين) واكتب ملاحظة توضح كل تعديل. يمكنك أيضاً إضافة خطوات جديدة أو حذف خطوات أصبحت غير ضرورية.</div>
       <div class="e-btn-row" style="margin-top:0;">
-        <button class="e-btn e-btn-primary" onclick="copyFromCurrent()">📋 نسخ الوضع الحالي كنقطة بداية</button>
+        <button class="e-btn e-btn-primary data-mutate-btn" onclick="copyFromCurrent()">📋 نسخ الوضع الحالي كنقطة بداية</button>
       </div>
     </div>
 
@@ -413,8 +416,8 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </table>
       </div>
       <div class="e-btn-row">
-        <button class="e-btn e-btn-outline" onclick="addRow('future')">+ إضافة عملية جديدة</button>
-        <button class="e-btn e-btn-ghost" onclick="resetRows('future')">تفريغ الجدول</button>
+        <button class="e-btn e-btn-outline data-mutate-btn" onclick="addRow('future')">+ إضافة عملية جديدة</button>
+        <button class="e-btn e-btn-ghost data-mutate-btn" onclick="resetRows('future')">تفريغ الجدول</button>
       </div>
       <div class="legend">
         <span><i style="background:#EAF1FE;border:1px solid #2563EB;"></i> خطوة جديدة</span>
@@ -445,6 +448,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       <h2><span class="num">5</span> مخطط تدفق القيمة — الوضع المستقبلي</h2>
       <div class="e-btn-row" style="margin-top:0; margin-bottom:14px;">
         <button class="e-btn e-btn-primary" onclick="drawDiagram('future')">🖊 ارسم المخطط</button>
+        <button class="e-btn e-btn-outline" id="previewBtn-future" onclick="previewDiagram('diagramWrap-future','خريطة تدفق القيمة — الوضع المستقبلي')" disabled>🔍 معاينة</button>
         <button class="e-btn e-btn-outline" id="downloadBtn-future" onclick="downloadPNG('future')" disabled>⬇ تحميل المخطط (PNG)</button>
       </div>
       <div id="diagramWrap-future">
@@ -732,6 +736,13 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
       <button class="btn btn-primary" onclick="submitCreateRecord()">إنشاء وفتح</button>
       <button class="btn btn-ghost" onclick="closeModal('createRecordModal')">إلغاء</button>
     </div>
+  </div>
+</div>
+
+<div id="imagePreviewModal" class="modal-overlay hidden" onclick="if(event.target===this) closeImagePreview()">
+  <div style="max-width:96vw; max-height:92vh; overflow:auto; background:#fff; border-radius:14px; padding:18px; position:relative;">
+    <button class="btn btn-ghost" onclick="closeImagePreview()" style="position:sticky; top:0; float:left; margin-bottom:10px;">✕ إغلاق</button>
+    <div id="imagePreviewContent" style="clear:both;"></div>
   </div>
 </div>
 
@@ -1561,7 +1572,7 @@ function renderTable(stateKey){
       <td class="lead-cell" id="lead-${stateKey}-${r.id}">0</td>
       <td class="note"><input type="text" value="${esc(r.note)}" oninput="updateRow('${stateKey}',${r.id},'note',this.value)"></td>
       ${extraCols}
-      <td><button class="e-btn-danger-mini" onclick="removeRow('${stateKey}',${r.id})">حذف</button></td>
+      <td><button class="e-btn-danger-mini data-mutate-btn" onclick="removeRow('${stateKey}',${r.id})">حذف</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1880,9 +1891,11 @@ function drawDiagram(stateKey){
   const validRows = state.rows.filter(r => r.processName && r.processName.trim()!=='');
   const wrap = document.getElementById('diagramWrap-'+stateKey);
   const downloadBtn = document.getElementById('downloadBtn-'+stateKey);
+  const previewBtn = document.getElementById('previewBtn-'+stateKey);
   if(validRows.length===0){
     wrap.innerHTML = '<div class="empty-diagram">الرجاء إدخال اسم عملية واحدة على الأقل في الجدول أعلاه قبل رسم المخطط.</div>';
     downloadBtn.disabled = true;
+    if(previewBtn) previewBtn.disabled = true;
     return;
   }
   const takt = calcTaktTime(stateKey);
@@ -1894,6 +1907,38 @@ function drawDiagram(stateKey){
   const svgString = buildDiagramSVG(validRows, takt, getHeaderData(stateKey), { diffByRowId });
   wrap.innerHTML = svgString;
   downloadBtn.disabled = false;
+  if(previewBtn) previewBtn.disabled = false;
+}
+
+function previewDiagram(wrapId, title){
+  const wrap = document.getElementById(wrapId);
+  const svgEl = wrap ? wrap.querySelector('svg') : null;
+  if(!svgEl){ alert('الرجاء رسم المخطط أولاً قبل المعاينة.'); return; }
+  const content = document.getElementById('imagePreviewContent');
+  content.innerHTML = (title ? `<h3 style="margin:0 0 12px;color:var(--navy);font-family:'Cairo',sans-serif;">${escHtml(title)}</h3>` : '') +
+    `<div style="background:#F7FAF9;border-radius:10px;padding:10px;">${svgEl.outerHTML}</div>`;
+  document.getElementById('imagePreviewModal').classList.remove('hidden');
+}
+
+function previewCombinedComparison(){
+  const curWrap = document.getElementById('diagramWrap-compare-current');
+  const futWrap = document.getElementById('diagramWrap-compare-future');
+  const curSvg = curWrap ? curWrap.querySelector('svg') : null;
+  const futSvg = futWrap ? futWrap.querySelector('svg') : null;
+  if(!curSvg || !futSvg){ alert('الرجاء التأكد من ظهور المخططين أولاً.'); return; }
+  const content = document.getElementById('imagePreviewContent');
+  content.innerHTML = `
+    <h3 style="margin:0 0 10px;color:var(--navy);font-family:'Cairo',sans-serif;">قبل — الوضع الحالي</h3>
+    <div style="background:#F7FAF9;border-radius:10px;padding:10px;margin-bottom:20px;">${curSvg.outerHTML}</div>
+    <h3 style="margin:0 0 10px;color:var(--navy);font-family:'Cairo',sans-serif;">بعد — الوضع المستقبلي</h3>
+    <div style="background:#F7FAF9;border-radius:10px;padding:10px;">${futSvg.outerHTML}</div>
+  `;
+  document.getElementById('imagePreviewModal').classList.remove('hidden');
+}
+
+function closeImagePreview(){
+  document.getElementById('imagePreviewModal').classList.add('hidden');
+  document.getElementById('imagePreviewContent').innerHTML = '';
 }
 
 function downloadSVGFromWrap(wrapId, filename){
@@ -2110,11 +2155,13 @@ function renderComparison(){
     <div class="e-card">
       <h2>🗺 المخططان</h2>
       <div class="e-btn-row" style="margin-top:0;">
+        <button class="e-btn e-btn-outline" onclick="previewCombinedComparison()">🔍 معاينة المخططين معاً</button>
         <button class="e-btn e-btn-primary" onclick="downloadCombinedComparisonPNG()">⬇ تحميل المخططين في صورة واحدة (قبل/بعد)</button>
       </div>
       <p class="kpi-diagram-label" style="margin-top:18px;">قبل — الوضع الحالي</p>
       <div class="e-btn-row" style="margin-top:0; margin-bottom:12px;">
         <button class="e-btn e-btn-outline" onclick="redrawCompareSingle('current')">🖊 إعادة رسم هذا المخطط</button>
+        <button class="e-btn e-btn-outline" onclick="previewDiagram('diagramWrap-compare-current','خريطة تدفق القيمة — الوضع الحالي')">🔍 معاينة</button>
         <button class="e-btn e-btn-ghost" id="downloadBtn-compare-current" onclick="downloadSVGFromWrap('diagramWrap-compare-current','خريطة-الوضع-الحالي-مقارنة.png')">⬇ تحميل PNG</button>
       </div>
       <div class="diagram-box" id="diagramWrap-compare-current">${curSvg}</div>
@@ -2122,6 +2169,7 @@ function renderComparison(){
       <p class="kpi-diagram-label" style="margin-top:22px;">بعد — الوضع المستقبلي</p>
       <div class="e-btn-row" style="margin-top:0; margin-bottom:12px;">
         <button class="e-btn e-btn-outline" onclick="redrawCompareSingle('future')">🖊 إعادة رسم هذا المخطط</button>
+        <button class="e-btn e-btn-outline" onclick="previewDiagram('diagramWrap-compare-future','خريطة تدفق القيمة — الوضع المستقبلي')">🔍 معاينة</button>
         <button class="e-btn e-btn-ghost" id="downloadBtn-compare-future" onclick="downloadSVGFromWrap('diagramWrap-compare-future','خريطة-الوضع-المستقبلي-مقارنة.png')">⬇ تحميل PNG</button>
       </div>
       <div class="diagram-box" id="diagramWrap-compare-future">${futSvg}</div>
@@ -2248,6 +2296,8 @@ function loadAppStateIntoEditor(state){
   document.getElementById('diagramWrap-future').innerHTML = '<div class="empty-diagram">انسخ بيانات الوضع الحالي أو أدخل خطوات جديدة، ثم اضغط "ارسم المخطط"</div>';
   document.getElementById('downloadBtn-current').disabled = true;
   document.getElementById('downloadBtn-future').disabled = true;
+  document.getElementById('previewBtn-current').disabled = true;
+  document.getElementById('previewBtn-future').disabled = true;
   document.getElementById('compareContent').innerHTML = '';
   switchTab('current');
   hasUnsavedChanges = false;
@@ -2413,7 +2463,11 @@ function applyReadOnlyMode(isReadOnly, bannerText){
   const root = document.getElementById('engineAppRoot');
   const banner = document.getElementById('editorReadOnlyBanner');
   const saveBtn = document.getElementById('editorSaveBtn');
-  root.classList.toggle('read-only-mode', isReadOnly);
+
+  root.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = isReadOnly; });
+  root.querySelectorAll('.data-mutate-btn').forEach(el => { el.disabled = isReadOnly; el.style.display = isReadOnly ? 'none' : ''; });
+  root.classList.toggle('read-only-dim', isReadOnly);
+
   if(isReadOnly){
     banner.textContent = '🔒 ' + bannerText;
     banner.classList.remove('hidden');
