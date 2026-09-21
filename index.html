@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة VSM | خريطة تدفق القيمة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  /* ألوان مستخرجة من شعار VSM (تدرج أزرق ← أخضر) */
+  --navy:#1F3B57;
+  --navy-light:#2C5075;
+  --blue:#1E6FA8;
+  --teal:#2E93A0;
+  --green:#3FAE7A;
+  --grad: linear-gradient(120deg, var(--blue), var(--teal), var(--green));
+  --red:#C0392B;
+  --bg:#F4F8F7;
+  --white:#FFFFFF;
+  --border:#DCE7E5;
+  --text-muted:#5B6E6D;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{ font-family:'Tajawal','Cairo',sans-serif; background:var(--bg); color:var(--navy); min-height:100vh; }
+h1,h2,h3,.brand-font{ font-family:'Cairo',sans-serif; }
+button{ font-family:inherit; cursor:pointer; border:none; }
+input,select{ font-family:inherit; }
+.hidden{ display:none !important; }
+
+/* ===== Top bar ===== */
+.topbar{ background:var(--navy); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 10px rgba(0,0,0,.15); flex-wrap:wrap; gap:10px; }
+.topbar .left{ display:flex; align-items:center; gap:12px; }
+.topbar img{ height:38px; }
+.topbar .title{ font-family:'Cairo',sans-serif; font-weight:700; font-size:16px; }
+.topbar .subtitle{ font-size:12px; color:#cfe3e0; }
+.topbar .actions{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.topbar .who{ font-size:13px; background:rgba(255,255,255,.12); padding:6px 14px; border-radius:20px; }
+.logout-btn{ background:var(--red); color:#fff; padding:8px 18px; border-radius:8px; font-size:13px; font-weight:700; }
+.logout-btn:hover{ background:#a5301f; }
+.ghost-btn{ background:rgba(255,255,255,.14); color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; }
+.ghost-btn:hover{ background:rgba(255,255,255,.24); }
+
+/* ===== Login screen ===== */
+#loginScreen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg); }
+.login-card{ background:#fff; border-radius:18px; box-shadow:0 10px 40px rgba(31,59,87,.12); padding:38px 34px; width:100%; max-width:400px; text-align:center; }
+.login-logos{ display:flex; justify-content:center; align-items:center; gap:22px; margin-bottom:10px; }
+.login-logos img{ height:64px; }
+.platform-badge{ height:70px; margin:6px 0; }
+.platform-name{ font-family:'Cairo',sans-serif; font-weight:800; font-size:22px; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.platform-tagline{ font-size:12.5px; color:var(--text-muted); margin-bottom:10px; }
+.org-context{ font-size:11.5px; color:var(--text-muted); line-height:1.6; margin:8px 0; }
+.grad-rule{ height:3px; border-radius:3px; background:var(--grad); margin:14px 0 18px; }
+.login-form{ text-align:right; }
+.login-form label{ display:block; font-size:12.5px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+.login-form input{ width:100%; padding:11px 13px; border:1.5px solid var(--border); border-radius:9px; font-size:14px; margin-bottom:14px; }
+.login-form input:focus{ outline:none; border-color:var(--teal); }
+.login-submit-btn{ width:100%; padding:12px; border-radius:9px; background:var(--grad); color:#fff; font-weight:700; font-size:15px; }
+.login-submit-btn:hover{ opacity:.92; }
+.login-error{ color:var(--red); font-size:12.5px; text-align:center; margin-bottom:10px; min-height:16px; }
+
+/* ===== Generic layout ===== */
+.page{ max-width:1180px; margin:0 auto; padding:24px 20px 60px; }
+.card{ background:var(--white); border:1px solid var(--border); border-radius:14px; padding:22px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(15,80,90,0.06); }
+.card h2{ font-size:16.5px; margin:0 0 16px; color:var(--navy); display:flex; align-items:center; gap:9px; justify-content:space-between; flex-wrap:wrap; }
+.card h2 span.t{ display:flex; align-items:center; gap:9px; }
+
+.tabs2{ display:flex; gap:8px; margin-bottom:18px; border-bottom:2px solid var(--border); flex-wrap:wrap; }
+.tab2-btn{ padding:10px 18px; border:none; background:none; cursor:pointer; font-family:'Cairo',sans-serif; font-weight:700; font-size:13.5px; color:var(--text-muted); border-bottom:3px solid transparent; margin-bottom:-2px; }
+.tab2-btn.active{ color:var(--navy); border-bottom-color:var(--teal); }
+.tab2-panel{ display:none; }
+.tab2-panel.active{ display:block; }
+
+table{ width:100%; border-collapse:collapse; font-size:13px; }
+th{ background:#EEF6F5; color:var(--navy); font-weight:700; padding:10px 8px; text-align:right; border-bottom:2px solid var(--border); font-size:12.5px; }
+td{ padding:9px 8px; border-bottom:1px solid var(--border); text-align:right; }
+.table-wrap{ overflow-x:auto; }
+
+.btn{ display:inline-flex; align-items:center; gap:7px; padding:10px 18px; border-radius:9px; border:none; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+.btn-primary{ background:var(--grad); color:#fff; }
+.btn-primary:hover{ opacity:.92; }
+.btn-outline{ background:#fff; color:var(--navy); border:1.5px solid var(--teal); }
+.btn-outline:hover{ background:#EEF6F5; }
+.btn-ghost{ background:transparent; color:var(--text-muted); border:1.5px solid var(--border); }
+.btn-danger-mini{ background:#fff; color:var(--red); border:1.3px solid #E8B4AE; padding:6px 12px; border-radius:7px; font-size:12px; cursor:pointer; }
+.btn-danger-mini:hover{ background:#FDEDEC; }
+.btn-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+
+label.field-label{ font-size:12.5px; color:var(--text-muted); display:block; margin-bottom:5px; font-weight:500; }
+input.field-input, select.field-input{ width:100%; padding:9px 11px; border:1.5px solid var(--border); border-radius:9px; font-size:14px; }
+.grid2{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+@media (max-width:600px){ .grid2{ grid-template-columns:1fr; } }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(15,40,50,.45); display:flex; align-items:center; justify-content:center; z-index:500; padding:20px; }
+.modal-box{ background:#fff; border-radius:14px; padding:26px; width:100%; max-width:420px; }
+.modal-box h3{ margin:0 0 16px; color:var(--navy); font-size:16px; }
+.modal-error{ color:var(--red); font-size:12.5px; margin:6px 0; min-height:14px; }
+
+.empty-msg{ text-align:center; color:var(--text-muted); padding:40px 10px; font-size:14px; }
+.cred-box{ font-family:monospace; background:#F4F8F7; border:1px dashed var(--teal); border-radius:8px; padding:8px 10px; font-size:12.5px; display:inline-block; }
+.stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+@media (max-width:820px){ .stat-grid{ grid-template-columns:repeat(2,1fr); } }
+.stat{ background:#F3FAF9; border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+.stat .label{ font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+.stat .value{ font-family:'Cairo',sans-serif; font-size:22px; font-weight:800; color:var(--navy); }
+footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:30px 0; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logos"><img src="moh-logo.png" alt="وزارة الصحة"></div>
+    <div class="org-context">المديرية العامة للخدمات الصحية - محافظة شمال الشرقية</div>
+    <img src="vsm-logo.jpeg" class="platform-badge" alt="VSM">
+    <div class="platform-tagline">منصة تدريب الموظفين على خريطة تدفق القيمة</div>
+    <div class="grad-rule"></div>
+    <div class="login-form">
+      <label>اسم المستخدم</label>
+      <input type="text" id="loginUsernameInput" placeholder="الرقم الوظيفي / اسم المؤسسة / admin" autocomplete="username">
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPasswordInput" placeholder="كلمة المرور" autocomplete="current-password">
+      <div class="login-error" id="loginError"></div>
+      <button id="loginSubmitBtn" class="login-submit-btn">تسجيل الدخول</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== EMPLOYEE SCREEN (placeholder — Phase 2) ===================== -->
+<div id="employeeScreen" class="hidden">
+  <div class="topbar">
+    <div class="left"><img src="vsm-logo.jpeg" alt="VSM"><div><div class="title">منصة VSM</div><div class="subtitle" id="empWho"></div></div></div>
+    <div class="actions"><button class="logout-btn" id="empLogoutBtn">تسجيل خروج</button></div>
+  </div>
+  <div class="page">
+    <div class="card">
+      <div class="empty-msg">👷 قائمة خرائط تدفق القيمة الخاصة بك ستتوفر هنا في المرحلة القادمة من التطوير (سيتم دمج أداة VSM الكاملة).</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== INSTITUTION SCREEN (placeholder — Phase 3) ===================== -->
+<div id="institutionScreen" class="hidden">
+  <div class="topbar">
+    <div class="left"><img src="vsm-logo.jpeg" alt="VSM"><div><div class="title">منصة VSM</div><div class="subtitle" id="instWho"></div></div></div>
+    <div class="actions"><button class="logout-btn" id="instLogoutBtn">تسجيل خروج</button></div>
+  </div>
+  <div class="page">
+    <div class="card">
+      <div class="empty-msg">🏥 عرض خرائط جميع موظفي مؤسستك سيتوفر هنا في مرحلة قادمة من التطوير.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN SCREEN ===================== -->
+<div id="adminScreen" class="hidden">
+  <div class="topbar">
+    <div class="left"><img src="moh-logo.png" alt="وزارة الصحة"><div><div class="title">لوحة تحكم المسؤول — منصة VSM</div><div class="subtitle">إدارة المؤسسات والموظفين</div></div></div>
+    <div class="actions">
+      <button class="ghost-btn" id="adminChangePwBtn">🔑 كلمة المرور</button>
+      <button class="logout-btn" id="adminLogoutBtn">تسجيل خروج</button>
+    </div>
+  </div>
+  <div class="page">
+
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat"><div class="label">عدد المؤسسات</div><div class="value" id="statInstCount">0</div></div>
+        <div class="stat"><div class="label">عدد الموظفين</div><div class="value" id="statEmpCount">0</div></div>
+        <div class="stat"><div class="label">عدد خرائط VSM المحفوظة</div><div class="value" id="statVsmCount">0</div></div>
+        <div class="stat"><div class="label">حالة الاتصال بقاعدة البيانات</div><div class="value" id="statDbStatus" style="font-size:14px;">—</div></div>
+      </div>
+    </div>
+
+    <div class="tabs2">
+      <button class="tab2-btn active" data-t2="institutions" onclick="switchAdminTab('institutions')">🏥 المؤسسات</button>
+      <button class="tab2-btn" data-t2="employees" onclick="switchAdminTab('employees')">👷 الموظفون</button>
+    </div>
+
+    <div id="admin-institutions" class="tab2-panel active">
+      <div class="card">
+        <h2><span class="t">قائمة المؤسسات الصحية</span></h2>
+        <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="openAddInstitutionModal()">+ إضافة مؤسسة جديدة</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>اسم المؤسسة</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>عدد الموظفين</th><th></th></tr></thead>
+            <tbody id="institutionsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-employees" class="tab2-panel">
+      <div class="card">
+        <h2><span class="t">قائمة الموظفين</span></h2>
+        <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="openAddEmployeeModal()">+ إضافة موظف جديد</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>اسم الموظف</th><th>الرقم الوظيفي</th><th>المؤسسة</th><th>كلمة المرور</th><th></th></tr></thead>
+            <tbody id="employeesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+<div id="addInstitutionModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>إضافة مؤسسة جديدة</h3>
+    <label class="field-label">اسم المؤسسة</label>
+    <input class="field-input" id="newInstName" placeholder="مثال: مستشفى إبراء" style="margin-bottom:12px;">
+    <label class="field-label">اسم المستخدم (للدخول)</label>
+    <input class="field-input" id="newInstUsername" placeholder="مثال: ibra-hospital" style="margin-bottom:12px;">
+    <label class="field-label">كلمة المرور الأولية</label>
+    <input class="field-input" id="newInstPassword" placeholder="مثال: 12345" style="margin-bottom:6px;">
+    <div class="modal-error" id="addInstError"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitAddInstitution()">حفظ</button>
+      <button class="btn btn-ghost" onclick="closeModal('addInstitutionModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="addEmployeeModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>إضافة موظف جديد</h3>
+    <label class="field-label">اسم الموظف</label>
+    <input class="field-input" id="newEmpName" placeholder="مثال: سالم البلوشي" style="margin-bottom:12px;">
+    <label class="field-label">الرقم الوظيفي (للدخول)</label>
+    <input class="field-input" id="newEmpId" placeholder="مثال: 40123" style="margin-bottom:12px;">
+    <label class="field-label">المؤسسة</label>
+    <select class="field-input" id="newEmpInstitution" style="margin-bottom:12px;"></select>
+    <label class="field-label">كلمة المرور الأولية</label>
+    <input class="field-input" id="newEmpPassword" placeholder="مثال: 12345" style="margin-bottom:6px;">
+    <div class="modal-error" id="addEmpError"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitAddEmployee()">حفظ</button>
+      <button class="btn btn-ghost" onclick="closeModal('addEmployeeModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="changePwModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>تغيير كلمة مرور المسؤول</h3>
+    <label class="field-label">كلمة المرور الجديدة</label>
+    <input class="field-input" type="password" id="newAdminPw" style="margin-bottom:12px;">
+    <label class="field-label">تأكيد كلمة المرور</label>
+    <input class="field-input" type="password" id="confirmAdminPw" style="margin-bottom:6px;">
+    <div class="modal-error" id="changePwError"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitChangeAdminPw()">حفظ</button>
+      <button class="btn btn-ghost" onclick="closeModal('changePwModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<footer class="foot">منصة VSM — التخطيط والدراسات، المديرية العامة للخدمات الصحية، محافظة شمال الشرقية</footer>
+
+<script>
+/* ============================================================
+   Firebase configuration
+   ضع هنا بيانات مشروعك من Firebase Console > Project Settings > Your apps
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCwmwM1shIvRSwm1NexibzAw45__2WMhHw",
+  authDomain: "vsm-platform.firebaseapp.com",
+  projectId: "vsm-platform",
+  storageBucket: "vsm-platform.firebasestorage.app",
+  messagingSenderId: "139637926485",
+  appId: "1:139637926485:web:6296c77f63c86c8029c2dc"
+};
+
+const INSTITUTIONS_COLLECTION = "vsm_institutions";
+const EMPLOYEES_COLLECTION = "vsm_employees";
+const RECORDS_COLLECTION = "vsm_records";
+const SETTINGS_COLLECTION = "vsm_settings";
+const DEFAULT_ADMIN_PASSWORD = "admin123"; // كلمة المرور الأولى فقط — غيّرها من داخل المنصة بعد أول دخول
+
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+  firebaseReady = FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
+}catch(e){ console.error("Firebase init error", e); }
+
+let ALL_INSTITUTIONS = [];
+let ALL_EMPLOYEES = [];
+let ALL_RECORDS = [];
+let ADMIN_PASSWORD_CURRENT = null;
+let currentAdmin = false;
+let currentInstitution = null;
+let currentEmployee = null;
+
+/* ============================================================
+   Firestore listeners (real-time cache sync)
+   ============================================================ */
+function listenToInstitutions(cb){
+  if(!firebaseReady){ cb([]); return; }
+  db.collection(INSTITUTIONS_COLLECTION).onSnapshot(snap=>{
+    const arr=[]; snap.forEach(doc=> arr.push({id:doc.id, ...doc.data()}));
+    ALL_INSTITUTIONS = arr; cb(arr);
+  }, err=>{ console.error(err); cb([]); });
+}
+function listenToEmployees(cb){
+  if(!firebaseReady){ cb([]); return; }
+  db.collection(EMPLOYEES_COLLECTION).onSnapshot(snap=>{
+    const arr=[]; snap.forEach(doc=> arr.push({id:doc.id, ...doc.data()}));
+    ALL_EMPLOYEES = arr; cb(arr);
+  }, err=>{ console.error(err); cb([]); });
+}
+function listenToRecords(cb){
+  if(!firebaseReady){ cb([]); return; }
+  db.collection(RECORDS_COLLECTION).onSnapshot(snap=>{
+    const arr=[]; snap.forEach(doc=> arr.push({id:doc.id, ...doc.data()}));
+    ALL_RECORDS = arr; cb(arr);
+  }, err=>{ console.error(err); cb([]); });
+}
+function listenToSettings(){
+  if(!firebaseReady) return;
+  db.collection(SETTINGS_COLLECTION).doc("adminAuth").onSnapshot(doc=>{
+    ADMIN_PASSWORD_CURRENT = (doc.exists && doc.data().password) ? doc.data().password : null;
+  });
+}
+
+/* ============================================================
+   CRUD — institutions & employees
+   ============================================================ */
+function addInstitution(data){
+  if(!firebaseReady){ alert("لم يتم ربط قاعدة البيانات بعد. راجع FIREBASE_CONFIG أعلى الملف."); return Promise.reject(); }
+  data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  return db.collection(INSTITUTIONS_COLLECTION).add(data);
+}
+function deleteInstitution(id){
+  if(!firebaseReady) return;
+  const hasEmployees = ALL_EMPLOYEES.some(e => e.institutionId === id);
+  if(hasEmployees){ alert("لا يمكن حذف هذه المؤسسة لأنها تحتوي على موظفين. احذف الموظفين أولاً."); return; }
+  if(!confirm("هل تريد حذف هذه المؤسسة؟")) return;
+  db.collection(INSTITUTIONS_COLLECTION).doc(id).delete();
+}
+function addEmployee(data){
+  if(!firebaseReady){ alert("لم يتم ربط قاعدة البيانات بعد."); return Promise.reject(); }
+  data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  return db.collection(EMPLOYEES_COLLECTION).add(data);
+}
+function deleteEmployee(id){
+  if(!firebaseReady) return;
+  const hasRecords = ALL_RECORDS.some(r => r.employeeId === id);
+  if(hasRecords){ if(!confirm("لهذا الموظف خرائط VSM محفوظة. حذف الحساب لن يحذف الخرائط لكنه سيمنع الوصول لها. هل تريد الاستمرار؟")) return; }
+  else if(!confirm("هل تريد حذف هذا الموظف؟")) return;
+  db.collection(EMPLOYEES_COLLECTION).doc(id).delete();
+}
+
+/* ============================================================
+   Modals
+   ============================================================ */
+function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
+function openAddInstitutionModal(){
+  document.getElementById("newInstName").value = "";
+  document.getElementById("newInstUsername").value = "";
+  document.getElementById("newInstPassword").value = "";
+  document.getElementById("addInstError").textContent = "";
+  document.getElementById("addInstitutionModal").classList.remove("hidden");
+}
+function submitAddInstitution(){
+  const name = document.getElementById("newInstName").value.trim();
+  const username = document.getElementById("newInstUsername").value.trim();
+  const password = document.getElementById("newInstPassword").value.trim();
+  const err = document.getElementById("addInstError");
+  if(!name || !username || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
+  if(ALL_INSTITUTIONS.some(i => i.username === username)){ err.textContent = "اسم المستخدم هذا مستخدم بالفعل."; return; }
+  addInstitution({ name, username, password }).then(()=>{
+    closeModal("addInstitutionModal");
+  }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
+}
+function openAddEmployeeModal(){
+  document.getElementById("newEmpName").value = "";
+  document.getElementById("newEmpId").value = "";
+  document.getElementById("newEmpPassword").value = "";
+  document.getElementById("addEmpError").textContent = "";
+  const sel = document.getElementById("newEmpInstitution");
+  sel.innerHTML = ALL_INSTITUTIONS.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join("");
+  if(ALL_INSTITUTIONS.length===0){ sel.innerHTML = `<option value="">أضف مؤسسة أولاً</option>`; }
+  document.getElementById("addEmployeeModal").classList.remove("hidden");
+}
+function submitAddEmployee(){
+  const name = document.getElementById("newEmpName").value.trim();
+  const employeeId = document.getElementById("newEmpId").value.trim();
+  const institutionId = document.getElementById("newEmpInstitution").value;
+  const password = document.getElementById("newEmpPassword").value.trim();
+  const err = document.getElementById("addEmpError");
+  if(!name || !employeeId || !institutionId || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
+  if(ALL_EMPLOYEES.some(e => e.employeeId === employeeId)){ err.textContent = "الرقم الوظيفي هذا مستخدم بالفعل."; return; }
+  addEmployee({ name, employeeId, institutionId, password }).then(()=>{
+    closeModal("addEmployeeModal");
+  }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
+}
+
+/* ============================================================
+   Rendering — admin tables
+   ============================================================ */
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderAdmin(){
+  document.getElementById("statInstCount").textContent = ALL_INSTITUTIONS.length;
+  document.getElementById("statEmpCount").textContent = ALL_EMPLOYEES.length;
+  document.getElementById("statVsmCount").textContent = ALL_RECORDS.length;
+  document.getElementById("statDbStatus").textContent = firebaseReady ? "✅ متصلة" : "⚠ غير مهيّأة";
+  document.getElementById("statDbStatus").style.color = firebaseReady ? "var(--green)" : "var(--red)";
+
+  const instBody = document.getElementById("institutionsTableBody");
+  if(ALL_INSTITUTIONS.length===0){
+    instBody.innerHTML = `<tr><td colspan="5" class="empty-msg">لا توجد مؤسسات مضافة بعد.</td></tr>`;
+  } else {
+    instBody.innerHTML = ALL_INSTITUTIONS.map(i => {
+      const empCount = ALL_EMPLOYEES.filter(e=>e.institutionId===i.id).length;
+      return `<tr>
+        <td>${escHtml(i.name)}</td>
+        <td><span class="cred-box">${escHtml(i.username)}</span></td>
+        <td><span class="cred-box">${escHtml(i.password)}</span></td>
+        <td>${empCount}</td>
+        <td><button class="btn-danger-mini" onclick="deleteInstitution('${i.id}')">حذف</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  const empBody = document.getElementById("employeesTableBody");
+  if(ALL_EMPLOYEES.length===0){
+    empBody.innerHTML = `<tr><td colspan="5" class="empty-msg">لا يوجد موظفون مضافون بعد.</td></tr>`;
+  } else {
+    empBody.innerHTML = ALL_EMPLOYEES.map(e => {
+      const inst = ALL_INSTITUTIONS.find(i=>i.id===e.institutionId);
+      return `<tr>
+        <td>${escHtml(e.name)}</td>
+        <td><span class="cred-box">${escHtml(e.employeeId)}</span></td>
+        <td>${inst ? escHtml(inst.name) : '<span style="color:var(--red);">مؤسسة محذوفة</span>'}</td>
+        <td><span class="cred-box">${escHtml(e.password)}</span></td>
+        <td><button class="btn-danger-mini" onclick="deleteEmployee('${e.id}')">حذف</button></td>
+      </tr>`;
+    }).join("");
+  }
+}
+
+function switchAdminTab(name){
+  document.querySelectorAll(".tab2-btn").forEach(b=> b.classList.toggle("active", b.dataset.t2===name));
+  document.querySelectorAll(".tab2-panel").forEach(p=> p.classList.toggle("active", p.id==="admin-"+name));
+}
+
+/* ============================================================
+   Auth / routing
+   ============================================================ */
+function showScreen(id){
+  ["loginScreen","employeeScreen","institutionScreen","adminScreen"].forEach(s=>{
+    document.getElementById(s).classList.toggle("hidden", s!==id);
+  });
+  window.scrollTo(0,0);
+}
+
+function resetLoginForm(){
+  document.getElementById("loginUsernameInput").value = "";
+  document.getElementById("loginPasswordInput").value = "";
+  document.getElementById("loginError").textContent = "";
+}
+
+function submitLoginForm(){
+  const username = document.getElementById("loginUsernameInput").value.trim();
+  const pw = document.getElementById("loginPasswordInput").value;
+  const errEl = document.getElementById("loginError");
+  if(!username){ errEl.textContent = "الرجاء إدخال اسم المستخدم"; return; }
+  if(!pw){ errEl.textContent = "الرجاء إدخال كلمة المرور"; return; }
+
+  if(username === "admin"){
+    if(pw === (ADMIN_PASSWORD_CURRENT || DEFAULT_ADMIN_PASSWORD)){
+      errEl.textContent = ""; enterAdmin(); return;
+    }
+    errEl.textContent = "بيانات الدخول غير صحيحة"; return;
+  }
+
+  const instRec = ALL_INSTITUTIONS.find(i => i.username === username);
+  if(instRec){
+    if(pw === instRec.password){ errEl.textContent = ""; enterInstitution(instRec); return; }
+    errEl.textContent = "بيانات الدخول غير صحيحة"; return;
+  }
+
+  const empRec = ALL_EMPLOYEES.find(e => e.employeeId === username);
+  if(empRec){
+    if(pw === empRec.password){ errEl.textContent = ""; enterEmployee(empRec); return; }
+    errEl.textContent = "بيانات الدخول غير صحيحة"; return;
+  }
+
+  errEl.textContent = "بيانات الدخول غير صحيحة";
+}
+
+function enterAdmin(){
+  currentAdmin = true;
+  showScreen("adminScreen");
+  renderAdmin();
+}
+function enterInstitution(rec){
+  currentInstitution = rec;
+  document.getElementById("instWho").textContent = rec.name;
+  showScreen("institutionScreen");
+}
+function enterEmployee(rec){
+  currentEmployee = rec;
+  document.getElementById("empWho").textContent = rec.name;
+  showScreen("employeeScreen");
+}
+function doLogout(){
+  currentAdmin = false; currentInstitution = null; currentEmployee = null;
+  resetLoginForm();
+  showScreen("loginScreen");
+}
+
+function submitChangeAdminPw(){
+  const pw1 = document.getElementById("newAdminPw").value;
+  const pw2 = document.getElementById("confirmAdminPw").value;
+  const err = document.getElementById("changePwError");
+  if(!pw1 || pw1.length<4){ err.textContent = "كلمة المرور يجب أن تكون 4 أحرف على الأقل."; return; }
+  if(pw1 !== pw2){ err.textContent = "كلمتا المرور غير متطابقتين."; return; }
+  if(!firebaseReady){ err.textContent = "قاعدة البيانات غير متصلة."; return; }
+  db.collection(SETTINGS_COLLECTION).doc("adminAuth").set({
+    password: pw1, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{ closeModal("changePwModal"); }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+document.getElementById("loginSubmitBtn").onclick = submitLoginForm;
+document.getElementById("loginPasswordInput").addEventListener("keydown", e=>{ if(e.key==="Enter") submitLoginForm(); });
+document.getElementById("loginUsernameInput").addEventListener("keydown", e=>{ if(e.key==="Enter") document.getElementById("loginPasswordInput").focus(); });
+document.getElementById("empLogoutBtn").onclick = doLogout;
+document.getElementById("instLogoutBtn").onclick = doLogout;
+document.getElementById("adminLogoutBtn").onclick = doLogout;
+document.getElementById("adminChangePwBtn").onclick = ()=>{
+  document.getElementById("newAdminPw").value = "";
+  document.getElementById("confirmAdminPw").value = "";
+  document.getElementById("changePwError").textContent = "";
+  document.getElementById("changePwModal").classList.remove("hidden");
+};
+
+listenToSettings();
+listenToInstitutions(()=>{ if(currentAdmin) renderAdmin(); });
+listenToEmployees(()=>{ if(currentAdmin) renderAdmin(); });
+listenToRecords(()=>{ if(currentAdmin) renderAdmin(); });
+
+if(!firebaseReady){
+  console.warn("Firebase غير مُهيّأ بعد. أضف إعدادات مشروعك في FIREBASE_CONFIG أعلى ملف index.html.");
+}
+</script>
+</body>
+</html>
