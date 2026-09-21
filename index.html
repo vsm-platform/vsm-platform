@@ -277,7 +277,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
     <div id="employeeEditorView" class="hidden">
       <div class="card" style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-          <button class="btn btn-ghost" onclick="returnToEmployeeList()">→ رجوع لقائمتي</button>
+          <button class="btn btn-ghost" id="editorBackBtn" onclick="returnToEmployeeList()">→ رجوع لقائمتي</button>
           <span id="editorRecordTitle" style="font-family:'Cairo',sans-serif; font-weight:700; color:var(--navy);"></span>
           <span id="editorRecordDomain" class="cred-box"></span>
         </div>
@@ -445,7 +445,38 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
   </div>
   <div class="page">
     <div class="card">
-      <div class="empty-msg">🏥 عرض خرائط جميع موظفي مؤسستك سيتوفر هنا في مرحلة قادمة من التطوير.</div>
+      <h2><span class="t">موظفو المؤسسة</span></h2>
+      <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="openAddInstEmployeeModal()">+ إضافة موظف جديد</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>اسم الموظف</th><th>المسمى الوظيفي</th><th>الرقم الوظيفي</th><th>كلمة المرور</th><th></th></tr></thead>
+          <tbody id="instEmployeesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="empty-msg">🗂 عرض خرائط VSM الخاصة بموظفي مؤسستك سيتوفر هنا في مرحلة قادمة من التطوير.</div>
+    </div>
+  </div>
+</div>
+
+<div id="addInstEmployeeModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>إضافة موظف جديد</h3>
+    <label class="field-label">اسم الموظف</label>
+    <input class="field-input" id="newInstEmpName" placeholder="مثال: سالم البلوشي" style="margin-bottom:12px;">
+    <label class="field-label">المسمى الوظيفي</label>
+    <input class="field-input" id="newInstEmpJobTitle" placeholder="مثال: صيدلاني أول" style="margin-bottom:12px;">
+    <label class="field-label">الرقم الوظيفي (للدخول)</label>
+    <input class="field-input" id="newInstEmpId" placeholder="مثال: 40123" style="margin-bottom:12px;">
+    <label class="field-label">كلمة المرور الأولية</label>
+    <input class="field-input" id="newInstEmpPassword" placeholder="مثال: 12345" style="margin-bottom:6px;">
+    <div class="modal-error" id="addInstEmpError"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitAddInstEmployee()">حفظ</button>
+      <button class="btn btn-ghost" onclick="closeModal('addInstEmployeeModal')">إلغاء</button>
     </div>
   </div>
 </div>
@@ -473,6 +504,7 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
     <div class="tabs2">
       <button class="tab2-btn active" data-t2="institutions" onclick="switchAdminTab('institutions')">🏥 المؤسسات</button>
       <button class="tab2-btn" data-t2="employees" onclick="switchAdminTab('employees')">👷 الموظفون</button>
+      <button class="tab2-btn" data-t2="vsms" onclick="switchAdminTab('vsms')">🗂 خرائط VSM</button>
     </div>
 
     <div id="admin-institutions" class="tab2-panel active">
@@ -498,8 +530,31 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>اسم الموظف</th><th>الرقم الوظيفي</th><th>المؤسسة</th><th>كلمة المرور</th><th></th></tr></thead>
+            <thead><tr><th>اسم الموظف</th><th>المسمى الوظيفي</th><th>الرقم الوظيفي</th><th>المؤسسة</th><th>كلمة المرور</th><th></th></tr></thead>
             <tbody id="employeesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-vsms" class="tab2-panel">
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat"><div class="label">إجمالي عدد الخرائط</div><div class="value" id="statVsmTotal">0</div></div>
+          <div class="stat"><div class="label">متوسط تحسّن الكفاءة (PCE)</div><div class="value" id="statVsmAvgImprove">—</div></div>
+          <div class="stat"><div class="label">عدد المؤسسات النشطة</div><div class="value" id="statVsmActiveInst">0</div></div>
+          <div class="stat"><div class="label">أكثر مجال استخدامًا</div><div class="value" id="statVsmTopDomain" style="font-size:15px;">—</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2><span class="t">كل خرائط VSM المحفوظة</span></h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>العنوان</th><th>المؤسسة</th><th>الموظف</th><th>المسمى الوظيفي</th><th>المجال</th>
+              <th>آخر تحديث</th><th>PCE الحالي</th><th>PCE المستقبلي</th><th>التحسّن</th><th></th>
+            </tr></thead>
+            <tbody id="adminVsmsTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -531,6 +586,8 @@ footer.foot{ text-align:center; color:var(--text-muted); font-size:12px; margin:
     <h3>إضافة موظف جديد</h3>
     <label class="field-label">اسم الموظف</label>
     <input class="field-input" id="newEmpName" placeholder="مثال: سالم البلوشي" style="margin-bottom:12px;">
+    <label class="field-label">المسمى الوظيفي</label>
+    <input class="field-input" id="newEmpJobTitle" placeholder="مثال: صيدلاني أول" style="margin-bottom:12px;">
     <label class="field-label">الرقم الوظيفي (للدخول)</label>
     <input class="field-input" id="newEmpId" placeholder="مثال: 40123" style="margin-bottom:12px;">
     <label class="field-label">المؤسسة</label>
@@ -613,6 +670,7 @@ let ADMIN_PASSWORD_CURRENT = null;
 let currentAdmin = false;
 let currentInstitution = null;
 let currentEmployee = null;
+let editorReturnTarget = 'employeeList'; // 'employeeList' | 'admin'
 
 /* ============================================================
    Firestore listeners (real-time cache sync)
@@ -690,13 +748,14 @@ function submitAddInstitution(){
   const password = document.getElementById("newInstPassword").value.trim();
   const err = document.getElementById("addInstError");
   if(!name || !username || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
-  if(ALL_INSTITUTIONS.some(i => i.username === username)){ err.textContent = "اسم المستخدم هذا مستخدم بالفعل."; return; }
+  if(ALL_INSTITUTIONS.some(i => i.username.toLowerCase() === username.toLowerCase())){ err.textContent = "اسم المستخدم هذا مستخدم بالفعل."; return; }
   addInstitution({ name, username, password }).then(()=>{
     closeModal("addInstitutionModal");
   }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
 }
 function openAddEmployeeModal(){
   document.getElementById("newEmpName").value = "";
+  document.getElementById("newEmpJobTitle").value = "";
   document.getElementById("newEmpId").value = "";
   document.getElementById("newEmpPassword").value = "";
   document.getElementById("addEmpError").textContent = "";
@@ -707,15 +766,56 @@ function openAddEmployeeModal(){
 }
 function submitAddEmployee(){
   const name = document.getElementById("newEmpName").value.trim();
+  const jobTitle = document.getElementById("newEmpJobTitle").value.trim();
   const employeeId = document.getElementById("newEmpId").value.trim();
   const institutionId = document.getElementById("newEmpInstitution").value;
   const password = document.getElementById("newEmpPassword").value.trim();
   const err = document.getElementById("addEmpError");
-  if(!name || !employeeId || !institutionId || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
-  if(ALL_EMPLOYEES.some(e => e.employeeId === employeeId)){ err.textContent = "الرقم الوظيفي هذا مستخدم بالفعل."; return; }
-  addEmployee({ name, employeeId, institutionId, password }).then(()=>{
+  if(!name || !jobTitle || !employeeId || !institutionId || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
+  if(ALL_EMPLOYEES.some(e => e.employeeId.toLowerCase() === employeeId.toLowerCase())){ err.textContent = "الرقم الوظيفي هذا مستخدم بالفعل."; return; }
+  addEmployee({ name, jobTitle, employeeId, institutionId, password }).then(()=>{
     closeModal("addEmployeeModal");
   }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
+}
+
+/* ============================================================
+   Institution — employee management (self-service, scoped to own institution)
+   ============================================================ */
+function openAddInstEmployeeModal(){
+  document.getElementById("newInstEmpName").value = "";
+  document.getElementById("newInstEmpJobTitle").value = "";
+  document.getElementById("newInstEmpId").value = "";
+  document.getElementById("newInstEmpPassword").value = "";
+  document.getElementById("addInstEmpError").textContent = "";
+  document.getElementById("addInstEmployeeModal").classList.remove("hidden");
+}
+function submitAddInstEmployee(){
+  const name = document.getElementById("newInstEmpName").value.trim();
+  const jobTitle = document.getElementById("newInstEmpJobTitle").value.trim();
+  const employeeId = document.getElementById("newInstEmpId").value.trim();
+  const password = document.getElementById("newInstEmpPassword").value.trim();
+  const err = document.getElementById("addInstEmpError");
+  if(!name || !jobTitle || !employeeId || !password){ err.textContent = "الرجاء تعبئة جميع الحقول."; return; }
+  if(ALL_EMPLOYEES.some(e => e.employeeId.toLowerCase() === employeeId.toLowerCase())){ err.textContent = "الرقم الوظيفي هذا مستخدم بالفعل."; return; }
+  addEmployee({ name, jobTitle, employeeId, institutionId: currentInstitution.id, password }).then(()=>{
+    closeModal("addInstEmployeeModal");
+  }).catch(()=>{ err.textContent = "حدث خطأ أثناء الحفظ."; });
+}
+function renderInstitutionEmployees(){
+  const tbody = document.getElementById("instEmployeesTableBody");
+  if(!tbody || !currentInstitution) return;
+  const myEmps = ALL_EMPLOYEES.filter(e => e.institutionId === currentInstitution.id);
+  if(myEmps.length === 0){
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">لا يوجد موظفون مضافون بعد.</td></tr>`;
+  } else {
+    tbody.innerHTML = myEmps.map(e => `<tr>
+      <td>${escHtml(e.name)}</td>
+      <td>${escHtml(e.jobTitle||'—')}</td>
+      <td><span class="cred-box">${escHtml(e.employeeId)}</span></td>
+      <td><span class="cred-box">${escHtml(e.password)}</span></td>
+      <td><button class="btn-danger-mini" onclick="deleteEmployee('${e.id}')">حذف</button></td>
+    </tr>`).join("");
+  }
 }
 
 /* ============================================================
@@ -748,12 +848,13 @@ function renderAdmin(){
 
   const empBody = document.getElementById("employeesTableBody");
   if(ALL_EMPLOYEES.length===0){
-    empBody.innerHTML = `<tr><td colspan="5" class="empty-msg">لا يوجد موظفون مضافون بعد.</td></tr>`;
+    empBody.innerHTML = `<tr><td colspan="6" class="empty-msg">لا يوجد موظفون مضافون بعد.</td></tr>`;
   } else {
     empBody.innerHTML = ALL_EMPLOYEES.map(e => {
       const inst = ALL_INSTITUTIONS.find(i=>i.id===e.institutionId);
       return `<tr>
         <td>${escHtml(e.name)}</td>
+        <td>${escHtml(e.jobTitle||'—')}</td>
         <td><span class="cred-box">${escHtml(e.employeeId)}</span></td>
         <td>${inst ? escHtml(inst.name) : '<span style="color:var(--red);">مؤسسة محذوفة</span>'}</td>
         <td><span class="cred-box">${escHtml(e.password)}</span></td>
@@ -761,6 +862,62 @@ function renderAdmin(){
       </tr>`;
     }).join("");
   }
+
+  renderAdminVsms();
+}
+
+function renderAdminVsms(){
+  const tbody = document.getElementById("adminVsmsTableBody");
+  if(!tbody) return;
+
+  if(ALL_RECORDS.length===0){
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-msg">لا توجد خرائط VSM مضافة بعد.</td></tr>`;
+  } else {
+    tbody.innerHTML = ALL_RECORDS.map(r => {
+      const inst = ALL_INSTITUTIONS.find(i=>i.id===r.institutionId);
+      const cur = r.appState && r.appState.current;
+      const fut = r.appState && r.appState.future;
+      const curPce = cur ? computeQuickPCE(cur) : null;
+      const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+      const futPce = futValid ? computeQuickPCE(fut) : null;
+      const updated = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleDateString('ar') : '—';
+      let deltaHtml = '—';
+      if(curPce!=null && futPce!=null){
+        const delta = futPce - curPce;
+        deltaHtml = `<span style="color:${delta>=0?'var(--green)':'var(--red)'};font-weight:700;">${delta>=0?'+':''}${delta.toFixed(1)}</span>`;
+      }
+      return `<tr>
+        <td>${escHtml(r.title||'بدون عنوان')}</td>
+        <td>${inst?escHtml(inst.name):'—'}</td>
+        <td>${escHtml(r.employeeName||'—')}</td>
+        <td>${escHtml(r.employeeJobTitle||'—')}</td>
+        <td>${escHtml(r.domain||'—')}</td>
+        <td>${updated}</td>
+        <td>${curPce!=null?curPce.toFixed(1)+'%':'—'}</td>
+        <td>${futPce!=null?futPce.toFixed(1)+'%':'—'}</td>
+        <td>${deltaHtml}</td>
+        <td><button class="btn-outline" style="padding:5px 12px;font-size:12px;border-radius:7px;" onclick="openRecordAsAdmin('${r.id}')">فتح وتعديل</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.getElementById("statVsmTotal").textContent = ALL_RECORDS.length;
+  const deltas = ALL_RECORDS.map(r => {
+    const cur = r.appState && r.appState.current;
+    const fut = r.appState && r.appState.future;
+    const curPce = cur ? computeQuickPCE(cur) : null;
+    const futValid = fut && fut.rows && fut.rows.some(x=>x.processName && x.processName.trim()!=='');
+    const futPce = futValid ? computeQuickPCE(fut) : null;
+    return (curPce!=null && futPce!=null) ? (futPce-curPce) : null;
+  }).filter(d => d!=null);
+  const avgDelta = deltas.length ? (deltas.reduce((a,b)=>a+b,0)/deltas.length) : null;
+  document.getElementById("statVsmAvgImprove").textContent = avgDelta!=null ? (avgDelta>=0?'+':'')+avgDelta.toFixed(1)+' نقطة' : '—';
+  const activeInstitutions = new Set(ALL_RECORDS.map(r=>r.institutionId)).size;
+  document.getElementById("statVsmActiveInst").textContent = activeInstitutions;
+  const domainCounts = {};
+  ALL_RECORDS.forEach(r => { domainCounts[r.domain] = (domainCounts[r.domain]||0)+1; });
+  const topDomain = Object.entries(domainCounts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById("statVsmTopDomain").textContent = topDomain ? topDomain[0]+' ('+topDomain[1]+')' : '—';
 }
 
 function switchAdminTab(name){
@@ -790,21 +947,22 @@ function submitLoginForm(){
   const errEl = document.getElementById("loginError");
   if(!username){ errEl.textContent = "الرجاء إدخال اسم المستخدم"; return; }
   if(!pw){ errEl.textContent = "الرجاء إدخال كلمة المرور"; return; }
+  const usernameLower = username.toLowerCase();
 
-  if(username === "admin"){
+  if(usernameLower === "admin"){
     if(pw === (ADMIN_PASSWORD_CURRENT || DEFAULT_ADMIN_PASSWORD)){
       errEl.textContent = ""; enterAdmin(); return;
     }
     errEl.textContent = "بيانات الدخول غير صحيحة"; return;
   }
 
-  const instRec = ALL_INSTITUTIONS.find(i => i.username === username);
+  const instRec = ALL_INSTITUTIONS.find(i => i.username.toLowerCase() === usernameLower);
   if(instRec){
     if(pw === instRec.password){ errEl.textContent = ""; enterInstitution(instRec); return; }
     errEl.textContent = "بيانات الدخول غير صحيحة"; return;
   }
 
-  const empRec = ALL_EMPLOYEES.find(e => e.employeeId === username);
+  const empRec = ALL_EMPLOYEES.find(e => e.employeeId.toLowerCase() === usernameLower);
   if(empRec){
     if(pw === empRec.password){ errEl.textContent = ""; enterEmployee(empRec); return; }
     errEl.textContent = "بيانات الدخول غير صحيحة"; return;
@@ -822,10 +980,14 @@ function enterInstitution(rec){
   currentInstitution = rec;
   document.getElementById("instWho").textContent = rec.name;
   showScreen("institutionScreen");
+  renderInstitutionEmployees();
 }
 function enterEmployee(rec){
   currentEmployee = rec;
+  editorReturnTarget = 'employeeList';
   document.getElementById("empWho").textContent = rec.name;
+  document.getElementById("empLogoutBtn").style.display = "";
+  document.getElementById("editorBackBtn").textContent = "→ رجوع لقائمتي";
   showScreen("employeeScreen");
   document.getElementById("employeeEditorView").classList.add("hidden");
   document.getElementById("employeeListView").classList.remove("hidden");
@@ -833,7 +995,7 @@ function enterEmployee(rec){
 }
 function doLogout(){
   currentAdmin = false; currentInstitution = null; currentEmployee = null;
-  currentRecordId = null; hasUnsavedChanges = false;
+  currentRecordId = null; hasUnsavedChanges = false; editorReturnTarget = 'employeeList';
   resetLoginForm();
   showScreen("loginScreen");
 }
@@ -868,7 +1030,7 @@ document.getElementById("adminChangePwBtn").onclick = ()=>{
 
 listenToSettings();
 listenToInstitutions(()=>{ if(currentAdmin) renderAdmin(); });
-listenToEmployees(()=>{ if(currentAdmin) renderAdmin(); });
+listenToEmployees(()=>{ if(currentAdmin) renderAdmin(); if(currentInstitution) renderInstitutionEmployees(); });
 listenToRecords(()=>{ if(currentAdmin) renderAdmin(); if(currentEmployee) renderEmployeeRecordsList(); });
 
 if(!firebaseReady){
@@ -1739,8 +1901,17 @@ function returnToEmployeeList(){
   }
   currentRecordId = null;
   document.getElementById('employeeEditorView').classList.add('hidden');
-  document.getElementById('employeeListView').classList.remove('hidden');
-  renderEmployeeRecordsList();
+  if(editorReturnTarget === 'admin'){
+    document.getElementById('employeeListView').classList.add('hidden');
+    document.getElementById('empLogoutBtn').style.display = '';
+    showScreen('adminScreen');
+    switchAdminTab('vsms');
+    renderAdminVsms();
+    editorReturnTarget = 'employeeList';
+  } else {
+    document.getElementById('employeeListView').classList.remove('hidden');
+    renderEmployeeRecordsList();
+  }
 }
 
 
@@ -1769,6 +1940,7 @@ function submitCreateRecord(){
     employeeDocId: currentEmployee.id,
     employeeIdNumber: currentEmployee.employeeId,
     employeeName: currentEmployee.name,
+    employeeJobTitle: currentEmployee.jobTitle || '',
     institutionId: currentEmployee.institutionId,
     domain: domain,
     title: title,
@@ -1785,6 +1957,7 @@ function openRecordInEditor(record){
   currentRecordId = record.id;
   document.getElementById('editorRecordTitle').textContent = record.title || 'بدون عنوان';
   document.getElementById('editorRecordDomain').textContent = record.domain || '';
+  showScreen('employeeScreen');
   loadAppStateIntoEditor(record.appState || blankAppState());
   document.getElementById('employeeListView').classList.add('hidden');
   document.getElementById('employeeEditorView').classList.remove('hidden');
@@ -1793,6 +1966,16 @@ function openRecordInEditor(record){
 function openRecordById(id){
   const rec = ALL_RECORDS.find(r=>r.id===id);
   if(!rec){ alert('تعذر العثور على هذه الخريطة.'); return; }
+  openRecordInEditor(rec);
+}
+
+function openRecordAsAdmin(id){
+  const rec = ALL_RECORDS.find(r=>r.id===id);
+  if(!rec){ alert('تعذر العثور على هذه الخريطة.'); return; }
+  editorReturnTarget = 'admin';
+  document.getElementById('empWho').textContent = '⚙ وضع الأدمن — تعديل خريطة الموظف: ' + (rec.employeeName||'') + (rec.employeeJobTitle ? (' — '+rec.employeeJobTitle) : '');
+  document.getElementById('empLogoutBtn').style.display = 'none';
+  document.getElementById('editorBackBtn').textContent = '→ رجوع للوحة الأدمن';
   openRecordInEditor(rec);
 }
 
